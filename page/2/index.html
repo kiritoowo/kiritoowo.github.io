@@ -2,10 +2,8 @@
 
 
 
-  
 
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
+<html class="theme-next pisces" lang="zh-Hans">
 <head>
   <meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -100,7 +98,7 @@
     sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
     fancybox: true,
     tabs: true,
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    motion: {"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
     duoshuo: {
       userId: '0',
       author: '博主'
@@ -379,41 +377,25 @@
 
       
         
-          
-            <p class="tuning-lead">Redis 7.x 调优重点是避免阻塞命令、控制内存水位、明确 AOF/RDB 安全目标，并让连接池与超时可观测。</p><h2>redis.conf 基线</h2><pre><code>maxmemory 12gb
-maxmemory-policy allkeys-lfu
-appendonly yes
-appendfsync everysec
-no-appendfsync-on-rewrite yes
-save 900 1
-save 300 10
-tcp-keepalive 60
-maxclients 20000
-activedefrag yes
-lazyfree-lazy-eviction yes</code></pre><p>建议 maxmemory 不超过物理内存 70%，为复制缓冲、AOF 重写和输出缓冲预留空间。缓存场景用 allkeys-lfu，重要数据评估 AOF everysec。</p><h2>热点与大 key</h2><pre><code>redis-cli --bigkeys
-redis-cli --hotkeys
-redis-cli slowlog get 20
-redis-cli info commandstats</code></pre><p>大集合删除用 UNLINK，遍历用 SCAN，禁止线上 KEYS *；集群热点用 hash tag 拆分，关注 evicted_keys、blocked_clients 和复制延迟。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://redis.io/docs/latest/operate/oss_and_stack/management/config/" target="_blank" rel="noopener">Redis 配置</a></li><li><a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" target="_blank" rel="noopener">Redis 延迟诊断</a></li><li><a href="https://help.aliyun.com/zh/apsaradb-for-redis/user-guide/optimize-the-performance-of-an-apsaradb-for-redis-instance" target="_blank" rel="noopener">阿里云 Redis 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: redis
-  become: true
-  tasks:
-    - name: 安装 Redis
-      ansible.builtin.apt: &#123;name: redis-server, state: present, update_cache: true&#125;
-    - name: 写入调优配置
-      ansible.builtin.blockinfile:
-        path: /etc/redis/redis.conf
-        marker: "# &#123;mark&#125; ANSIBLE 调优"
-        block: |
-          maxmemory 12gb
-          maxmemory-policy allkeys-lfu
-          appendonly yes
-          appendfsync everysec
-          activedefrag yes
-      notify: 重启 Redis
-  handlers:
-    - name: 重启 Redis
-      ansible.builtin.service: &#123;name: redis-server, state: restarted&#125;</code></pre>
-
-          
+          <h2>内存模型与淘汰策略选择</h2>
+<p>先区分 Redis 是缓存、会话、排行榜还是主数据副本。缓存可容忍逐出时使用 <code>allkeys-lfu</code>；仅对带 TTL 的键逐出时才选择 <code>volatile-*</code>。每个业务键必须定义 TTL、最大值和失效后的降级行为，避免没有过期时间的 key 挤占热数据。</p>
+<pre><code># 采集内存碎片、大 key 和复制压力
+redis-cli info memory
+redis-cli memory stats
+redis-cli --memkeys
+redis-cli info replication
+redis-cli latency doctor</code></pre>
+<h2>客户端连接与故障切换</h2>
+<p>连接池上限要乘以实例数计算，不要让每个应用实例创建数百条空闲长连接。读写分离要接受复制延迟，不能把强一致读路由到副本。哨兵或 Cluster 切换时客户端需刷新拓扑并设定合理的 connect/read timeout，业务侧仍需具备缓存未命中回源保护。</p>
+<table><tr><th>异常</th><th>优先检查</th><th>处理方向</th></tr><tr><td>延迟尖刺</td><td>slowlog、fork、AOF rewrite、交换分区</td><td>拆分大 key、安排重写窗口</td></tr><tr><td>频繁逐出</td><td>maxmemory、TTL、内存碎片</td><td>扩容或缩短无效数据生命周期</td></tr><tr><td>主从延迟</td><td>网络、repl backlog、输出缓冲</td><td>减少大命令和复制阻塞</td></tr></table>
+<p class="tuning-lead">Redis 7.x 调优重点是避免阻塞命令、控制内存水位、明确 AOF/RDB 安全目标，并让连接池与超时可观测。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/05/16/redis-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -563,44 +545,25 @@ redis-cli info commandstats</code></pre><p>大集合删除用 UNLINK，遍历用
 
       
         
-          
-            <p class="tuning-lead">MySQL 8.0 调优围绕 InnoDB Buffer Pool、redo/binlog 持久化、连接池和慢 SQL 证据展开，示例面向 32GB 专用节点。</p><h2>InnoDB 基线</h2><pre><code>[mysqld]
-innodb_buffer_pool_size=24G
-innodb_buffer_pool_instances=8
-innodb_log_file_size=2G
-innodb_log_files_in_group=2
-innodb_flush_method=O_DIRECT
-innodb_flush_log_at_trx_commit=1
-sync_binlog=1
-max_connections=1000
-table_open_cache=8192
-slow_query_log=ON
-long_query_time=0.5</code></pre><p>Buffer Pool 从内存 60%–75% 起步；强持久化保持 flush_log_at_trx_commit=1、sync_binlog=1。连接池通常 CPU×2–4 后压测。</p><h2>SQL 与观测</h2><pre><code>SELECT * FROM sys.statement_analysis ORDER BY total_latency DESC LIMIT 10;
-EXPLAIN ANALYZE SELECT ...;
-SHOW ENGINE INNODB STATUS\G
-SELECT VARIABLE_VALUE FROM performance_schema.global_status
-WHERE VARIABLE_NAME IN ('Threads_connected','Innodb_buffer_pool_reads');</code></pre><p>联合索引遵循等值→范围→排序；避免隐式类型转换、SELECT *。验收命中率、P95/P99、锁等待、redo 刷盘和复制延迟。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://dev.mysql.com/doc/refman/8.0/en/optimization.html" target="_blank" rel="noopener">MySQL 优化文档</a></li><li><a href="https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/user-guide/optimize-the-performance-of-an-apsaradb-rds-for-mysql-instance" target="_blank" rel="noopener">阿里云 RDS MySQL</a></li><li><a href="https://www.percona.com/blog/" target="_blank" rel="noopener">Percona 性能实践</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: mysql
-  become: true
-  tasks:
-    - name: 安装 MySQL
-      ansible.builtin.apt: &#123;name: mysql-server, state: present, update_cache: true&#125;
-    - name: 部署调优片段
-      ansible.builtin.copy:
-        dest: /etc/mysql/mysql.conf.d/99-tuning.cnf
-        mode: '0644'
-        content: |
-          innodb_buffer_pool_size=24G
-          innodb_flush_method=O_DIRECT
-          innodb_flush_log_at_trx_commit=1
-          sync_binlog=1
-          slow_query_log=ON
-          long_query_time=0.5
-      notify: 重启 MySQL
-  handlers:
-    - name: 重启 MySQL
-      ansible.builtin.service: &#123;name: mysql, state: restarted&#125;</code></pre>
-
-          
+          <h2>先识别工作负载，再设置参数</h2>
+<p>OLTP、高并发读、批处理导入和分析型查询的参数目标不同。OLTP 优先稳定事务延迟与锁等待；导入任务优先顺序 I/O 和批量提交；分析查询则需要避免它们抢占线上 Buffer Pool。将批任务安排在低峰，或放到只读副本，而不是为一次导入长期放宽持久化参数。</p>
+<pre><code># 最耗时语句、索引使用和锁等待
+SELECT digest_text, count_star, avg_timer_wait
+FROM performance_schema.events_statements_summary_by_digest
+ORDER BY sum_timer_wait DESC LIMIT 10;
+SELECT * FROM sys.schema_unused_indexes;
+SELECT * FROM sys.innodb_lock_waits;</code></pre>
+<h2>索引变更与事务边界</h2>
+<p>索引前先确认过滤选择性和返回列，避免为了覆盖索引写入过宽索引。大表 DDL 使用 Online DDL 或 gh-ost、pt-online-schema-change，并在副本先演练。事务应短小，避免把 RPC、文件上传和用户交互包在事务中；批量更新用主键范围分段，控制单批行数以降低 undo 与锁持有时间。</p>
+<div class="tuning-tip">提交参数的最低验收集合：慢查询 Top 10、Buffer Pool 读命中、行锁等待、redo checkpoint age、主从延迟以及磁盘 fsync p99。</div>
+<p class="tuning-lead">MySQL 8.0 调优围绕 InnoDB Buffer Pool、redo/binlog 持久化、连接池和慢 SQL 证据展开，示例面向 32GB 专用节点。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/04/10/mysql-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -750,29 +713,23 @@ WHERE VARIABLE_NAME IN ('Threads_connected','Innodb_buffer_pool_reads');</code><
 
       
         
-          
-            <p class="tuning-lead">以 JDK 21 LTS 为例，先设堆边界、GC 日志和 OOM 行为，再按停顿目标选收集器；容器预算需包含堆外与线程栈。</p><h2>通用参数</h2><pre><code>-Xms8g -Xmx8g -Xss1m
--XX:MaxMetaspaceSize=512m
--XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/jvm
--XX:+ExitOnOutOfMemoryError
--Xlog:gc*,safepoint:file=/var/log/jvm/gc-%t.log:time,level,tags:filecount=10,filesize=100m</code></pre><p>通常令 Xms=Xmx 避免扩容抖动；MaxRAMPercentage 场景给 native 预留 25%–35%。</p><h2>收集器对照</h2><table><tr><th>收集器</th><th>场景</th><th>参数起点</th></tr><tr><td>ParallelGC</td><td>吞吐/批处理</td><td><code>-XX:+UseParallelGC -XX:MaxGCPauseMillis=200 -XX:ParallelGCThreads=8</code></td></tr><tr><td>G1GC</td><td>通用服务</td><td><code>-XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=30</code></td></tr><tr><td>ZGC</td><td>大堆低停顿</td><td><code>-XX:+UseZGC -XX:+ZGenerational -XX:SoftMaxHeapSize=12g</code></td></tr></table><div class="mermaid">flowchart TD
-A[SLO/压测]-->B[GC日志/JFR/p99]
-B-->C{停顿 or 吞吐}
-C--停顿-->D[G1/ZGC与减少分配]
-C--吞吐-->E[ParallelGC或增大堆]
-D-->F[灰度回滚]
-E-->F</div><p class="tuning-warn">JDK 21 自适应策略通常优于手工固定年轻代比例，只有日志证明必要时再覆盖。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://docs.oracle.com/en/java/javase/21/gctuning/" target="_blank" rel="noopener">Oracle JDK 21 GC</a></li><li><a href="https://wiki.openjdk.org/display/zgc" target="_blank" rel="noopener">OpenJDK ZGC</a></li><li><a href="https://help.aliyun.com/zh/arms/application-monitoring/user-guide/jvm-monitoring" target="_blank" rel="noopener">阿里云 JVM 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: java
-  become: true
-  tasks:
-    - name: 安装 JDK 21
-      ansible.builtin.apt: &#123;name: openjdk-21-jdk, state: present, update_cache: true&#125;
-    - name: 写入 JVM 选项
-      ansible.builtin.copy:
-        dest: /etc/profile.d/jvm.sh
-        mode: '0644'
-        content: "export JAVA_TOOL_OPTIONS='-Xms8g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=100'\n"</code></pre>
-
-          
+          <h2>对象分配比 GC 参数更重要</h2>
+<p>GC 调优的首选手段不是增加堆，而是减少无效分配。排查 JSON 字符串拼接、重复反序列化、大集合全量加载、临时 <code>byte[]</code> 和无限缓存。先从 GC 日志中确认分配速率、晋升速率与 Full GC 原因，再用 JFR 或 async-profiler 定位分配热点。</p>
+<pre><code># JDK 21：持续记录 5 分钟事件
+jcmd &lt;pid&gt; JFR.start name=allocation settings=profile duration=5m filename=/tmp/allocation.jfr
+jcmd &lt;pid&gt; GC.heap_info
+jcmd &lt;pid&gt; VM.native_memory summary</code></pre>
+<h2>收集器选择与验收</h2>
+<table><tr><th>现象</th><th>优先行动</th><th>不要直接做的事</th></tr><tr><td>Young GC 频繁</td><td>检查分配速率、缓存与批量大小</td><td>盲目增大 Xmx</td></tr><tr><td>Mixed GC 长</td><td>检查老年代增长和大对象</td><td>手工固定年轻代比例</td></tr><tr><td>Full GC</td><td>看 GC cause、元空间、直接内存</td><td>只更换收集器</td></tr><tr><td>p99 抖动</td><td>关联 safepoint、CPU 抢占和 I/O</td><td>只看平均 GC 时间</td></tr></table>
+<p>验收应保留压测前后的吞吐、p50/p95/p99、GC 总暂停、最大暂停、CPU 使用率与容器 RSS。若 ZGC 改善停顿却明显增加 CPU，应根据业务 SLO 而非单项指标决策。</p>
+<p class="tuning-lead">以 JDK 21 LTS 为例，先设堆边界、GC 日志和 OOM 行为，再按停顿目标选收集器；容器预算需包含堆外与线程栈。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/02/22/jvm-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -922,55 +879,27 @@ E-->F</div><p class="tuning-warn">JDK 21 自适应策略通常优于手工固定
 
       
         
-          
-            <p class="tuning-lead">Ubuntu 24.04 LTS（兼容 22.04 LTS）生产基线，覆盖初始化、漏洞扫描、UFW/Fail2ban、防火墙、文件句柄、交换分区与 TCP 栈。</p><h2>初始化与安全</h2><div class="mermaid">flowchart LR
-A[更新补丁/时区]-->B[SSH最小权限]
-B-->C[Lynis/USG/Trivy扫描]
-C-->D[UFW+Fail2ban]
-D-->E[sysctl与limits]
-E-->F[压测灰度]</div><pre><code>sudo apt update &amp;&amp; sudo apt full-upgrade -y
-sudo timedatectl set-timezone Asia/Shanghai
-sudo apt install -y unattended-upgrades auditd chrony sysstat lynis fail2ban ufw
-# SSH 配置文件
-PermitRootLogin no
-PasswordAuthentication no
-MaxAuthTries 3</code></pre><p>Ubuntu Pro/USG 执行 CIS Level 1 审计，Trivy 扫描镜像，Lynis 审计主机；云安全组与 UFW 双层白名单。</p><h2>内核参数基线</h2><table><tr><th>类别</th><th>起始值</th><th>关注指标</th></tr><tr><td>句柄</td><td><code>fs.file-max=2097152</code>，nofile=1048576</td><td>EMFILE</td></tr><tr><td>交换</td><td>≥16G 内存配置 4–8G swap，<code>vm.swappiness=1</code></td><td>major fault/IO wait</td></tr><tr><td>脏页</td><td><code>vm.dirty_ratio=10</code>、background=3</td><td>写入尖峰</td></tr><tr><td>队列</td><td><code>somaxconn=65535</code>、<code>tcp_max_syn_backlog=262144</code></td><td>SYN 丢弃</td></tr><tr><td>端口</td><td><code>ip_local_port_range=10240 65535</code>、<code>tcp_fin_timeout=15</code></td><td>TIME_WAIT</td></tr><tr><td>拥塞</td><td><code>tcp_congestion_control=bbr</code></td><td>吞吐/重传</td></tr></table><pre><code>cat &gt; /etc/sysctl.d/99-tuning.conf &lt;&lt;'EOF'
-fs.file-max=2097152
-vm.swappiness=1
-vm.dirty_ratio=10
-vm.dirty_background_ratio=3
-net.core.somaxconn=65535
-net.ipv4.tcp_max_syn_backlog=262144
-net.ipv4.ip_local_port_range=10240 65535
-net.ipv4.tcp_fin_timeout=15
-net.ipv4.tcp_congestion_control=bbr
-EOF
-sudo sysctl --system</code></pre><p>使用 <code>pidstat</code>、<code>ss -s</code>、<code>sar -n TCP,DEV</code> 建立基线；每次只改一组并保留回滚文件。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://ubuntu.com/server/docs" target="_blank" rel="noopener">Ubuntu Server</a></li><li><a href="https://ubuntu.com/security/cis" target="_blank" rel="noopener">Ubuntu CIS/USG</a></li><li><a href="https://help.aliyun.com/zh/ecs/user-guide/optimize-linux-instances" target="_blank" rel="noopener">阿里云 Linux 优化</a></li><li><a href="https://www.fail2ban.org/wiki/index.php/Main_Page" target="_blank" rel="noopener">Fail2ban</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: linux
-  become: true
-  tasks:
-    - name: 安装安全工具
-      ansible.builtin.apt:
-        name: [ufw, fail2ban, lynis, auditd, sysstat]
-        update_cache: true
-        state: present
-    - name: 写入 sysctl
-      ansible.builtin.copy:
-        dest: /etc/sysctl.d/99-tuning.conf
-        content: |
-          fs.file-max=2097152
-          vm.swappiness=1
-          net.core.somaxconn=65535
-          net.ipv4.tcp_max_syn_backlog=262144
-    - name: 应用参数
-      ansible.builtin.command: sysctl --system
-    - name: 放行 SSH/HTTP/HTTPS
-      community.general.ufw:
-        rule: allow
-        port: "&#123;&#123; item &#125;&#125;"
-        proto: tcp
-      loop: [22, 80, 443]</code></pre>
-
-          
+          <h2>容量规划与变更顺序</h2>
+<p>调优不是把所有上限调大。先依据连接数、文件描述符、网卡带宽、磁盘 IOPS 和内存水位建立容量表，再定位最先饱和的资源。应用最大连接数、反向代理连接数、数据库连接池和 <code>nofile</code> 必须来自同一份预算；否则应用看似仍有线程，实际已被内核队列或端口耗尽限制。</p>
+<table><tr><th>阶段</th><th>动作</th><th>通过条件</th></tr><tr><td>基线</td><td>连续采集 24 小时 CPU、内存、网络、磁盘、连接数</td><td>明确高峰 QPS 与 p99</td></tr><tr><td>压测</td><td>逐级提高并发，单次只改一个参数组</td><td>无连接拒绝、无明显重传</td></tr><tr><td>灰度</td><td>先 5% 流量、观察一个高峰周期</td><td>错误率和 p99 不劣化</td></tr><tr><td>回滚</td><td>保留旧 sysctl 文件与服务限制</td><td>可在分钟级恢复</td></tr></table>
+<h2>安全基线细节</h2>
+<p>SSH 只允许密钥登录并限制来源网段；管理面端口不要和公网业务端口混用。Fail2ban 的封禁仅用于减缓暴力破解，不能替代安全组和身份认证。对外服务应启用自动安全更新，并在维护窗口验证内核升级后的驱动、容器运行时和 eBPF 监控兼容性。</p>
+<pre><code># 查看有效限制与连接状态
+systemctl show your-service -p LimitNOFILE
+ulimit -n
+ss -s
+cat /proc/sys/fs/file-nr
+# 查看半连接与重传
+netstat -s | grep -E 'listen|retransmit|SYN'</code></pre>
+<div class="tuning-warn">不要启用已废弃或风险不明确的网络参数，例如 <code>tcp_tw_recycle</code>。NAT、移动网络和多出口环境下，它会造成正常连接被错误丢弃。</div>
+<p class="tuning-lead">Ubuntu 24.04 LTS（兼容 22.04 LTS）生产基线，覆盖初始化、漏洞扫描、UFW/Fail2ban、防火墙、文件句柄、交换分区与 TCP 栈。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/01/18/server-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1008,7 +937,7 @@ sudo sysctl --system</code></pre><p>使用 <code>pidstat</code>、<code>ss -s</c
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/">&lt;i class&#x3D;&quot;fa fa-angle-left&quot;&gt;&lt;&#x2F;i&gt;</a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
+    <a class="extend prev" rel="prev" href="/"><span class="pagination-prev">上一页</span></a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
   </nav>
 
 
@@ -1632,6 +1561,5 @@ sudo sysctl --system</code></pre><p>使用 <code>pidstat</code>、<code>ss -s</c
 
   
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script><script>mermaid.initialize({startOnLoad:true,theme:"neutral"});</script>
 </body>
 </html>

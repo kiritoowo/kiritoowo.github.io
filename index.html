@@ -2,10 +2,8 @@
 
 
 
-  
 
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
+<html class="theme-next pisces" lang="zh-Hans">
 <head>
   <meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -100,7 +98,7 @@
     sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
     fancybox: true,
     tabs: true,
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    motion: {"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
     duoshuo: {
       userId: '0',
       author: '博主'
@@ -379,41 +377,24 @@
 
       
         
-          
-            <p class="tuning-lead">CI/CD 调优目标是更短反馈时间和可重复发布。缓存依赖与镜像层、并行化测试、限制构建资源，并将 SBOM、签名和漏洞门禁纳入流水线。</p><h2>构建与缓存</h2><pre><code># Git 全局配置
-git config --global fetch.parallel 8
-git config --global core.compression 1
-# Maven 并行构建
-mvn -T 1C -Dmaven.repo.local=.m2/repository verify
-# Docker BuildKit 缓存
-RUN --mount=type=cache,target=/root/.m2 mvn -T 1C package</code></pre><p>Jenkins Pipeline 使用并行 stage，executor 不超过节点 CPU；GitLab Runner 使用 Docker executor 与缓存。Kubernetes 构建 Pod 设置 requests/limits，镜像用 Trivy/Grype 扫描并 Cosign 签名。</p><h2>发布流程</h2><div class="mermaid">flowchart LR
-A[提交/合并请求]-->B[单测+静态扫描]
-B-->C[缓存构建]
-C-->D[SBOM/漏洞门禁]
-D-->E[K8s 灰度]
-E-->F[指标验收]
-F--通过-->G[全量发布]
-F--失败-->H[自动回滚]</div><p>Ansible 使用幂等模块、ansible-lint 和 Vault；K8s Deployment 配置 readinessProbe、PDB 与滚动更新上限，发布前执行 server-side dry-run。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://git-scm.com/book/en/v2/Git-on-the-Server-Optimizing-Git" target="_blank" rel="noopener">Git 优化</a></li><li><a href="https://maven.apache.org/guides/mini/guide-configuring-maven.html" target="_blank" rel="noopener">Maven 配置</a></li><li><a href="https://www.jenkins.io/doc/book/pipeline/" target="_blank" rel="noopener">Jenkins Pipeline</a></li><li><a href="https://docs.gitlab.com/ee/ci/caching/" target="_blank" rel="noopener">GitLab CI/CD 缓存</a></li><li><a href="https://docs.docker.com/build/cache/" target="_blank" rel="noopener">Docker 构建缓存</a></li><li><a href="https://kubernetes.io/docs/concepts/configuration/overview/" target="_blank" rel="noopener">Kubernetes 配置</a></li><li><a href="https://help.aliyun.com/zh/ack/ack-managed-and-ack-dedicated/user-guide/optimize-cluster-performance" target="_blank" rel="noopener">阿里云 ACK 优化</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: ci_runner
-  become: true
-  tasks:
-    - name: 安装构建依赖
-      ansible.builtin.apt:
-        name: [git, maven, docker.io, ansible-lint]
-        update_cache: true
-        state: present
-    - name: runner 加入 docker 组
-      ansible.builtin.user: &#123;name: gitlab-runner, groups: docker, append: true&#125;
-    - name: 配置 Docker 日志轮转
-      ansible.builtin.copy:
-        dest: /etc/docker/daemon.json
-        mode: '0644'
-        content: '&#123;"log-driver":"json-file","log-opts":&#123;"max-size":"100m","max-file":"3"&#125;&#125;'
-      notify: 重启 Docker
-  handlers:
-    - name: 重启 Docker
-      ansible.builtin.service: &#123;name: docker, state: restarted&#125;</code></pre>
-
-          
+          <h2>流水线缓存与并行化边界</h2>
+<p>缓存只保存可重建的依赖和中间产物，不缓存密钥、部署凭据和未验证的构建结果。Maven、npm、Docker layer cache 要按锁文件和基础镜像摘要分 key；缓存命中后仍执行校验。测试按单元、集成、端到端分层并行，集成测试依赖临时数据库或 Testcontainers。</p>
+<pre><code># 发布前的最小门禁示例
+mvn -B -T 1C verify
+trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign verify "$IMAGE"
+kubectl apply --server-side --dry-run=server -f k8s/</code></pre>
+<h2>发布策略与供应链</h2>
+<p>Deployment 使用 RollingUpdate 时设置 <code>maxUnavailable=0</code> 和适度 <code>maxSurge</code>，readinessProbe 必须验证真实依赖可用。灰度期间比较错误率、p95、资源使用和业务转化率，自动回滚不能只看 Pod 是否 Running。Ansible Vault、GitLab protected variables 和 OIDC 短期凭据优于长期明文 token。</p>
+<div class="tuning-warn">不要在 CI 日志打印环境变量、云凭据或完整构建命令中的 token；依赖升级必须经过锁文件变更审查和漏洞报告。</div>
+<p class="tuning-lead">CI/CD 调优目标是更短反馈时间和可重复发布。缓存依赖与镜像层、并行化测试、限制构建资源，并将 SBOM、签名和漏洞门禁纳入流水线。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2025/06/12/cicd-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -563,34 +544,24 @@ F--失败-->H[自动回滚]</div><p>Ansible 使用幂等模块、ansible-lint �
 
       
         
-          
-            <p class="tuning-lead">可观测性系统也会消耗 CPU、网络和存储。采用采样优先、标签受控、冷热分层，保证故障高峰仍能查询关键链路。</p><h2>信号与容量基线</h2><table><tr><th>系统</th><th>生产起点</th><th>关键参数</th></tr><tr><td>SkyWalking</td><td>普通链路 10%，错误 100%</td><td>agent.sample_n_per_3_secs</td></tr><tr><td>Prometheus</td><td>抓取 15–30s，保留 30 天</td><td>--storage.tsdb.retention.time=30d</td></tr><tr><td>ELK</td><td>Hot 7 天、Warm 30 天、冷归档</td><td>ILM、bulk pipeline</td></tr><tr><td>Grafana</td><td>查询超时 30s，变量限值</td><td>缓存与并发查询</td></tr></table><h2>降噪与验证</h2><pre><code># Prometheus 启动参数
---storage.tsdb.retention.time=30d
---storage.tsdb.wal-compression
-# Filebeat 队列参数
-queue.mem.events: 4096
-bulk_max_size: 2048
-compression_level: 5</code></pre><p>指标标签禁止 userId、requestId 等高基数字段；日志 pipeline 脱敏。看板按 RED/USE 组织，告警带 runbook。演练 Prometheus 重启、ES 节点故障和采样降级。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://skywalking.apache.org/docs/" target="_blank" rel="noopener">SkyWalking</a></li><li><a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/" target="_blank" rel="noopener">Prometheus 配置</a></li><li><a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/index-lifecycle-management.html" target="_blank" rel="noopener">Elastic ILM</a></li><li><a href="https://grafana.com/docs/grafana/latest/administration/" target="_blank" rel="noopener">Grafana 管理</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: monitoring
-  become: true
-  tasks:
-    - name: 部署 Prometheus 保留策略
-      ansible.builtin.copy:
-        dest: /etc/default/prometheus
-        mode: '0644'
-        content: 'ARGS=--storage.tsdb.retention.time=30d --storage.tsdb.wal-compression\n'
-      notify: 重启 Prometheus
-    - name: 配置 Filebeat 队列
-      ansible.builtin.blockinfile:
-        path: /etc/filebeat/filebeat.yml
-        marker: "# &#123;mark&#125; ANSIBLE 调优"
-        block: |
-          queue.mem.events: 4096
-          bulk_max_size: 2048
-  handlers:
-    - name: 重启 Prometheus
-      ansible.builtin.service: &#123;name: prometheus, state: restarted&#125;</code></pre>
-
-          
+          <h2>高基数、采样和存储成本</h2>
+<p>APM 系统最容易被高基数标签和无边界日志拖垮。指标标签禁止使用 userId、订单号、完整 URL 和 requestId；这些字段放到日志或链路 span 的受控属性中。SkyWalking 采样率按服务重要性分级，错误、慢请求和关键交易可以提升采样，正常成功链路按比例采样。</p>
+<pre><code># Prometheus 查询：识别高基数指标
+topk(20, count by (__name__)(&#123;__name__=~".+"&#125;))
+# 查看目标抓取与样本增长
+prometheus_tsdb_head_series
+rate(prometheus_tsdb_head_samples_appended_total[5m])</code></pre>
+<h2>告警要可行动</h2>
+<p>告警使用多窗口、燃尽率或 RED/USE 指标，避免单个瞬时点触发。每条告警包含影响范围、查询链接、runbook、负责人和自动恢复动作。日志、指标和链路使用同一 traceId，但不要把完整请求体写入日志；敏感字段在采集端脱敏。</p>
+<div class="tuning-tip">观测系统故障时业务仍应可用：Agent 上报失败要丢弃或限队列，Filebeat/OTel 缓冲达到阈值要降级，Prometheus remote_write 失败不能阻塞本地抓取。</div>
+<p class="tuning-lead">可观测性系统也会消耗 CPU、网络和存储。采用采样优先、标签受控、冷热分层，保证故障高峰仍能查询关键链路。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2025/04/17/apm-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -740,27 +711,21 @@ compression_level: 5</code></pre><p>指标标签禁止 userId、requestId 等高
 
       
         
-          
-            <p class="tuning-lead">分布式调优首先控制重试和连接总量，把超时、重试、熔断、限流、注册中心和任务调度纳入容量预算，避免重试风暴。</p><h2>组件基线</h2><table><tr><th>组件</th><th>生产建议</th></tr><tr><td>Nacos</td><td>≥3 节点、鉴权；长轮询 30s，本地快照</td></tr><tr><td>OpenFeign</td><td>connectTimeout 1s、readTimeout 3s；幂等请求最多重试 1 次</td></tr><tr><td>Gateway</td><td>连接池按下游容量，response-timeout 5s</td></tr><tr><td>Sentinel</td><td>QPS+并发双维度限流，规则持久化 Nacos</td></tr><tr><td>Seata</td><td>AT 事务短小，undo 日志清理；强一致评估 TCC</td></tr><tr><td>XXL-JOB</td><td>线程池隔离，错峰触发，失败重试≤2</td></tr></table><h2>重试预算流程</h2><div class="mermaid">flowchart TD
-U[用户请求]-->G[Gateway 5s]
-G-->F[Feign 1s/3s 重试1]
-F-->S[Sentinel 熔断限流]
-S-->D[下游服务]
-D-->DB[(数据库连接池)]</div><p>ShardingSphere-Proxy 开启 SQL 审计和连接池上限，分片键必须出现在查询条件；跨库事务交由 Seata 或最终一致方案。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://sca.aliyun.com/" target="_blank" rel="noopener">Spring Cloud Alibaba</a></li><li><a href="https://nacos.io/docs/latest/" target="_blank" rel="noopener">Nacos 文档</a></li><li><a href="https://sentinelguard.io/zh-cn/docs/" target="_blank" rel="noopener">Sentinel 文档</a></li><li><a href="https://seata.apache.org/zh-cn/docs/overview/" target="_blank" rel="noopener">Seata 文档</a></li><li><a href="https://www.xuxueli.com/xxl-job/" target="_blank" rel="noopener">XXL-JOB 文档</a></li><li><a href="https://help.aliyun.com/zh/mse/user-guide/performance-tuning" target="_blank" rel="noopener">阿里云 MSE 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: microservices
-  become: true
-  tasks:
-    - name: 写入统一超时配置
-      ansible.builtin.copy:
-        dest: /etc/myapp/bootstrap.properties
-        mode: '0644'
-        content: |
-          spring.cloud.openfeign.client.config.default.connectTimeout=1000
-          spring.cloud.openfeign.client.config.default.readTimeout=3000
-          spring.cloud.gateway.httpclient.response-timeout=5s
-          spring.cloud.sentinel.eager=true
-          spring.cloud.nacos.discovery.watch.enabled=true</code></pre>
-
-          
+          <h2>超时、重试与熔断必须成组设计</h2>
+<p>重试只有在调用可幂等、剩余时间预算充足、下游没有整体过载时才有价值。每一跳超时应递减：网关总预算大于应用预算，应用预算大于 Feign/数据库预算；重试引入的放大倍数要纳入下游容量。Sentinel 降级响应必须是业务可接受的默认值，而不是空响应。</p>
+<pre><code># 建议统一记录的远程调用字段
+traceId, targetService, route, timeoutMs, retryCount,
+statusCode, exceptionType, elapsedMs, fallbackName</code></pre>
+<h2>注册中心与任务调度运维</h2>
+<p>Nacos 配置变更使用命名空间、灰度 Data ID 与回滚版本，避免全量推送错误参数。Seata 的全局锁等待和 undo_log 膨胀需要看板与清理策略。XXL-JOB 任务需要幂等业务键、执行超时、分片参数和告警收敛，禁止把长事务任务直接放入调度器线程。</p>
+<p class="tuning-lead">分布式调优首先控制重试和连接总量，把超时、重试、熔断、限流、注册中心和任务调度纳入容量预算，避免重试风暴。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2025/03/06/distributed-framework-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -910,31 +875,28 @@ D-->DB[(数据库连接池)]</div><p>ShardingSphere-Proxy 开启 SQL 审计和�
 
       
         
-          
-            <p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p><h2>Spring Boot 与连接池</h2><pre><code>server.tomcat.threads.max=400
-server.tomcat.accept-count=200
-spring.mvc.async.request-timeout=5000
-spring.datasource.hikari.maximum-pool-size=32
-spring.datasource.hikari.connection-timeout=3000
-spring.datasource.hikari.leak-detection-threshold=5000
-management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre><h2>MyBatis/JPA/分库分表</h2><p>MyBatis/Plus 分页单页限制 1000 行，批量写使用 BATCH；JPA 关闭 Open Session in View，设置 <code>hibernate.jdbc.batch_size=50</code>、<code>order_inserts=true</code> 并用实体图解决 N+1。Sharding-JDBC 明确分片键、广播表和 SQL 重写日志。</p><h2>Netty</h2><pre><code>bossEventLoopGroup=1
-workerEventLoopGroup=CPU*2
-ChannelOption.SO_BACKLOG=4096
-ChannelOption.TCP_NODELAY=true
-WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线程池；关注 eventLoop pending tasks 与 direct memory。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html" target="_blank" rel="noopener">Spring Boot 配置</a></li><li><a href="https://mybatis.org/mybatis-3/performance.html" target="_blank" rel="noopener">MyBatis 性能 FAQ</a></li><li><a href="https://netty.io/wiki/user-guide-for-4.x.html" target="_blank" rel="noopener">Netty 用户指南</a></li><li><a href="https://help.aliyun.com/zh/mse/user-guide/performance-tuning" target="_blank" rel="noopener">阿里云 Spring Cloud 实践</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: spring_app
-  become: true
-  tasks:
-    - name: 写入 Spring Boot 参数
-      ansible.builtin.copy:
-        dest: /etc/myapp/application-prod.properties
-        mode: '0644'
-        content: |
-          server.tomcat.threads.max=400
-          spring.datasource.hikari.maximum-pool-size=32
-          spring.datasource.hikari.connection-timeout=3000
-          management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre>
-
-          
+          <h2>线程池隔离与超时传播</h2>
+<p>Spring 的 <code>@Async</code>、Web MVC 异步、消息消费和 Netty 业务执行器应分池，且每个线程池都要有队列上限、拒绝策略和指标。没有上限的队列会把过载转化为长尾延迟和堆内存膨胀。超时从入口传递到数据库和远程调用，避免上游已放弃、下游还持续执行。</p>
+<pre><code># application.yml 示例：线程池必须受限
+spring:
+  task:
+    execution:
+      pool:
+        core-size: 8
+        max-size: 32
+        queue-capacity: 500
+      shutdown:
+        await-termination: true</code></pre>
+<h2>ORM 与分片边界</h2>
+<p>MyBatis/JPA 的首要性能问题通常是 N+1、无界分页和一次性加载大对象图。为列表接口设计 DTO 查询，限定字段和单页大小；写入采用批处理且控制事务批次。Sharding-JDBC 只有携带分片键时才会路由到少量分片，缺失分片键的查询应被审计或在业务层拒绝。</p>
+<p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2025/01/16/framework-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1084,31 +1046,23 @@ WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线�
 
       
         
-          
-            <p class="tuning-lead">OpenResty 基于 Nginx 事件循环和 LuaJIT。调优关键是 worker、连接上限、proxy 缓冲和 Lua 共享字典；请求路径禁止阻塞 I/O。</p><h2>nginx.conf 基线</h2><pre><code>worker_processes auto;
-worker_rlimit_nofile 200000;
-events &#123; use epoll; worker_connections 65535; multi_accept on; &#125;
-http &#123;
-  sendfile on; tcp_nopush on; tcp_nodelay on;
-  keepalive_timeout 30; keepalive_requests 1000;
-  proxy_http_version 1.1; proxy_buffering on;
-  proxy_buffers 16 16k; proxy_busy_buffers_size 64k;
-  lua_shared_dict metrics 20m;
-  gzip on; gzip_comp_level 5;
-&#125;</code></pre><h2>Lua、缓存与验收</h2><p>使用 lua-resty-redis 连接池并调用 set_keepalive；共享字典用于限流和热点缓存。动态接口使用 proxy_cache_lock 抑制击穿，静态资源使用 immutable 长缓存。关注 active/reading/writing、upstream 响应时间、Lua GC、4xx/5xx。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://openresty.org/en/" target="_blank" rel="noopener">OpenResty 官方文档</a></li><li><a href="https://docs.nginx.com/nginx/admin-guide/optimizing-performance/" target="_blank" rel="noopener">Nginx 性能优化</a></li><li><a href="https://help.aliyun.com/zh/ecs/user-guide/optimize-nginx" target="_blank" rel="noopener">阿里云 Nginx 优化</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: openresty
-  become: true
-  tasks:
-    - name: 部署 OpenResty 配置
-      ansible.builtin.template:
-        src: nginx.conf.j2
-        dest: /usr/local/openresty/nginx/conf/nginx.conf
-        mode: '0644'
-      notify: 重载 OpenResty
-  handlers:
-    - name: 重载 OpenResty
-      ansible.builtin.service: &#123;name: openresty, state: reloaded&#125;</code></pre>
-
-          
+          <h2>事件循环的边界</h2>
+<p>每个 worker 处理大量非阻塞连接，但一段阻塞 Lua、DNS 查询、磁盘 I/O 或过重正则都可能拖慢该 worker。请求路径只做鉴权、路由、缓存和轻量转换；复杂计算交给上游服务或异步队列。Lua 代码使用 cosocket，避免直接调用阻塞系统命令。</p>
+<pre><code># 快速检查配置与连接状态
+openresty -t
+curl -s http://127.0.0.1/nginx_status
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log</code></pre>
+<h2>缓存正确性</h2>
+<p>缓存键必须包含影响响应的租户、语言、认证状态和必要请求头；缓存响应不要误包含 Set-Cookie。对回源失败设置 stale-while-revalidate 或短暂 stale 响应能提升可用性，但敏感数据和权限变更接口必须主动失效。限流 key 用用户、IP 或 API 维度组合，避免 NAT 场景误伤。</p>
+<p class="tuning-lead">OpenResty 基于 Nginx 事件循环和 LuaJIT。调优关键是 worker、连接上限、proxy 缓冲和 Lua 共享字典；请求路径禁止阻塞 I/O。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/12/12/openresty-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1258,27 +1212,23 @@ http &#123;
 
       
         
-          
-            <p class="tuning-lead">Tomcat 10.1 调优遵循“线程数匹配下游容量”。先用 NIO/NIO2 与共享线程池，再依据 p99、队列和 GC 调整 maxThreads。</p><h2>连接器基线</h2><pre><code>&lt;Executor name="tomcatThreadPool" namePrefix="catalina-exec-" maxThreads="400" minSpareThreads="50"/&gt;
-&lt;Connector executor="tomcatThreadPool" protocol="org.apache.coyote.http11.Http11NioProtocol"
- connectionTimeout="5000" keepAliveTimeout="5000" maxKeepAliveRequests="100"
- acceptCount="200" maxConnections="10000" URIEncoding="UTF-8"/&gt;</code></pre><p>maxThreads 从 CPU×(1+等待/计算比)起步，但必须小于数据库与下游连接池容量；acceptCount 只是队列，不能掩盖慢请求。</p><h2>保护与会话</h2><p>启用 AccessLog 采样、JMX 和 Micrometer；上传限制、请求超时和拒绝策略显式配置。集群将 session 外置到 Redis/数据库，避免本地粘滞。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://tomcat.apache.org/tomcat-10.1-doc/config/http.html" target="_blank" rel="noopener">Tomcat HTTP 配置</a></li><li><a href="https://wiki.apache.org/tomcat/FAQ/PerformanceAndMonitoring" target="_blank" rel="noopener">Tomcat 性能 FAQ</a></li><li><a href="https://help.aliyun.com/zh/ecs/user-guide/optimize-tomcat" target="_blank" rel="noopener">阿里云 Tomcat 优化</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: tomcat
-  become: true
-  vars: &#123;tomcat_home: /opt/tomcat&#125;
-  tasks:
-    - name: 写入线程池连接器
-      ansible.builtin.blockinfile:
-        path: "&#123;&#123; tomcat_home &#125;&#125;/conf/server.xml"
-        marker: "<!-- &#123;mark&#125; ANSIBLE 调优 -->"
-        insertafter: '<Service name="Catalina">'
-        block: |
-          &lt;Executor name="tomcatThreadPool" namePrefix="catalina-exec-" maxThreads="400" minSpareThreads="50"/&gt;
-      notify: 重启 Tomcat
-  handlers:
-    - name: 重启 Tomcat
-      ansible.builtin.service: &#123;name: tomcat, state: restarted&#125;</code></pre>
-
-          
+          <h2>线程池必须与下游一起计算</h2>
+<p>Tomcat 线程并不是越多越好。若请求大部分时间等待数据库，400 个 Tomcat 线程可能同时抢 32 个数据库连接，排队会把超时放大。线程数、HikariCP、HTTP 客户端连接池与下游限流必须共同配置，并让最外层网关超时大于应用超时、应用超时大于下游超时。</p>
+<pre><code># 发生卡顿时采集三次线程栈，间隔 10 秒
+jcmd &lt;pid&gt; Thread.print -l &gt; /tmp/thread-1.txt
+sleep 10
+jcmd &lt;pid&gt; Thread.print -l &gt; /tmp/thread-2.txt
+# 观察 BLOCKED、WAITING 和同一调用栈持续存在的线程</code></pre>
+<h2>连接、上传与慢客户端防护</h2>
+<p>maxConnections 受文件描述符和内存限制，必须与 Linux <code>nofile</code> 一起验证。上传接口单独设置大小、读取超时和并发限制；长轮询、SSE、WebSocket 不应与普通同步请求争夺同一线程池。AccessLog 应记录请求耗时和状态码，便于识别单 URL 的尾延迟。</p>
+<p class="tuning-lead">Tomcat 10.1 调优遵循“线程数匹配下游容量”。先用 NIO/NIO2 与共享线程池，再依据 p99、队列和 GC 调整 maxThreads。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/11/07/tomcat-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1428,37 +1378,25 @@ http &#123;
 
       
         
-          
-            <p class="tuning-lead">MongoDB 7.x 的 WiredTiger 已较稳健，调优重点是工作集、索引选择性、写关注级别和连接池。副本集先保证多数派写入，再讨论吞吐。</p><h2>mongod.conf 基线</h2><pre><code>storage:
-  wiredTiger:
-    engineConfig:
-      cacheSizeGB: 12
-operationProfiling:
-  mode: slowOp
-  slowOpThresholdMs: 100
-net:
-  maxIncomingConnections: 20000
-replication:
-  oplogSizeMB: 51200</code></pre><p>WiredTiger cache 通常约为物理内存 50%（容器按 limit 计算），其余留给文件系统缓存和连接。驱动 maxPoolSize 从 100–200 起步，结合排队时间调节。</p><h2>查询与索引</h2><pre><code>db.orders.explain('executionStats').find(&#123;tenantId:1,status:'PAID'&#125;).sort(&#123;createdAt:-1&#125;)
-db.orders.getIndexes()
-db.serverStatus().wiredTiger.cache</code></pre><p>复合索引遵循 ESR（Equality、Sort、Range）；分页采用范围条件避免高 skip。批量写使用 <code>bulkWrite</code>，并评估 <code>w: majority</code> 的延迟成本。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://www.mongodb.com/docs/manual/administration/analyzing-mongodb-performance/" target="_blank" rel="noopener">MongoDB 性能分析</a></li><li><a href="https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use" target="_blank" rel="noopener">WiredTiger 缓存</a></li><li><a href="https://help.aliyun.com/zh/mongodb/user-guide/optimize-the-performance-of-an-apsaradb-for-mongodb-instance" target="_blank" rel="noopener">阿里云 MongoDB 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: mongodb
-  become: true
-  tasks:
-    - name: 写入 WiredTiger 缓存
-      ansible.builtin.blockinfile:
-        path: /etc/mongod.conf
-        marker: "# &#123;mark&#125; ANSIBLE 调优"
-        block: |
-          storage:
-            wiredTiger:
-              engineConfig:
-                cacheSizeGB: 12
-      notify: 重启 MongoDB
-  handlers:
-    - name: 重启 MongoDB
-      ansible.builtin.service: &#123;name: mongod, state: restarted&#125;</code></pre>
-
-          
+          <h2>工作集、索引和缓存关系</h2>
+<p>MongoDB 性能首先取决于活跃数据和活跃索引能否驻留在 WiredTiger 缓存与文件系统缓存中。缓存不足时会出现频繁页读取和尾延迟升高；缓存过大又会挤压操作系统页缓存。通过慢操作、执行计划和 WiredTiger cache 指标判断，而不是仅按内存百分比配置。</p>
+<pre><code>db.orders.aggregate([
+  &#123;$match:&#123;tenantId:1&#125;&#125;,
+  &#123;$indexStats:&#123;&#125;&#125;
+])
+db.currentOp(&#123;active:true, secs_running:&#123;$gt:5&#125;&#125;)
+db.serverStatus().opcounters</code></pre>
+<h2>副本集与读写语义</h2>
+<p><code>writeConcern: &#123;w: "majority"&#125;</code> 提升故障下的数据安全，但延迟会受最慢投票节点影响；读偏好 secondary 可能读到旧数据。订单状态、库存等强一致读取留在 primary 或使用 afterClusterTime；报表、搜索候选等可接受最终一致的读再走副本。</p>
+<div class="tuning-tip">索引上线后观察写入延迟、索引尺寸、查询扫描文档数和复制延迟至少一个业务周期。未使用索引的删除要先确认不是低频任务或未来索引。</div>
+<p class="tuning-lead">MongoDB 7.x 的 WiredTiger 已较稳健，调优重点是工作集、索引选择性、写关注级别和连接池。副本集先保证多数派写入，再讨论吞吐。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/10/03/mongodb-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1608,42 +1546,22 @@ db.serverStatus().wiredTiger.cache</code></pre><p>复合索引遵循 ESR（Equal
 
       
         
-          
-            <p class="tuning-lead">Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量/压缩，Consumer 拉取与提交。</p><h2>Broker 基线</h2><pre><code>num.network.threads=8
-num.io.threads=16
-socket.send.buffer.bytes=1048576
-socket.receive.buffer.bytes=1048576
-socket.request.max.bytes=104857600
-log.segment.bytes=1073741824
-log.retention.hours=168
-default.replication.factor=3
-min.insync.replicas=2</code></pre><h2>Producer/Consumer</h2><pre><code>acks=all
-enable.idempotence=true
-compression.type=zstd
-linger.ms=10
-batch.size=131072
-fetch.min.bytes=1048576
-fetch.max.wait.ms=500
-max.poll.records=500
-enable.auto.commit=false</code></pre><p>分区数按吞吐和消费者并行度规划；监控 UnderReplicatedPartitions、RequestHandlerAvgIdlePercent、ConsumerLag、磁盘和网络水位。</p><div class="tuning-tip">演练杀 Broker、断磁盘、重复提交，确认 ISR、幂等和业务去重符合 RTO/RPO。</div><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://kafka.apache.org/documentation/" target="_blank" rel="noopener">Kafka 官方文档</a></li><li><a href="https://kafka.apache.org/documentation/#producerconfigs" target="_blank" rel="noopener">Kafka Producer 配置</a></li><li><a href="https://help.aliyun.com/zh/alikafka/user-guide/optimize-the-performance-of-an-alikafka-instance" target="_blank" rel="noopener">阿里云 Kafka 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: kafka
-  become: true
-  tasks:
-    - name: 部署 Kafka 性能配置
-      ansible.builtin.blockinfile:
-        path: /opt/kafka/config/server.properties
-        marker: "# &#123;mark&#125; ANSIBLE 调优"
-        block: |
-          num.network.threads=8
-          num.io.threads=16
-          socket.send.buffer.bytes=1048576
-          socket.receive.buffer.bytes=1048576
-          min.insync.replicas=2
-      notify: 重启 Kafka
-  handlers:
-    - name: 重启 Kafka
-      ansible.builtin.service: &#123;name: kafka, state: restarted&#125;</code></pre>
-
-          
+          <h2>分区与副本容量计算</h2>
+<p>分区数应以目标吞吐、单分区可持续吞吐、消费者并行度和恢复时间共同计算。扩分区会改变 key 到分区的映射，因此依赖同 key 全局顺序的主题需预留分区。三副本、<code>min.insync.replicas=2</code> 与 <code>acks=all</code> 是高可用常用组合，但要为复制流量和故障恢复预留磁盘空间。</p>
+<pre><code># 识别滞后与副本异常
+kafka-consumer-groups.sh --bootstrap-server broker:9092 --describe --group your-group
+kafka-topics.sh --bootstrap-server broker:9092 --describe --topic your-topic</code></pre>
+<h2>消费者稳定性</h2>
+<p>Consumer 处理时间必须小于 <code>max.poll.interval.ms</code>；耗时任务应拆成小批或转给工作线程并正确提交 offset。不要因为滞后就无上限增加消费者，分区数才是并行度上限。重平衡频繁时检查部署滚动策略、session timeout、GC 停顿和外部依赖耗时。</p>
+<div class="tuning-warn">不要把消息保留策略当作备份。Kafka 的 retention 受时间和磁盘阈值影响，合规或审计数据应同步到对象存储或独立归档系统。</div>
+<p class="tuning-lead">Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量/压缩，Consumer 拉取与提交。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/08/29/kafka-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1793,32 +1711,23 @@ enable.auto.commit=false</code></pre><p>分区数按吞吐和消费者并行度�
 
       
         
-          
-            <p class="tuning-lead">Elasticsearch 8.x 受 JVM 堆、磁盘 I/O、分片数量和查询模式共同影响；经典基线是堆不超过 31GB、约占物理内存一半。</p><h2>节点与 JVM</h2><pre><code># JVM 堆配置文件
--Xms16g
--Xmx16g
-# Elasticsearch 配置文件
-bootstrap.memory_lock: true
-indices.memory.index_buffer_size: 15%
-indices.queries.cache.size: 10%</code></pre><p>分片大小建议 20–50GB，采用 ILM 做 Hot/Warm/冷分层；Bulk 从 5–15MB 起步，观察 rejected。</p><h2>写入与查询</h2><pre><code>PUT logs-*/_settings
-&#123;"index":&#123;"refresh_interval":"30s","number_of_replicas":1&#125;&#125;
-GET _nodes/stats/jvm,fs,thread_pool
-GET _cluster/health?level=shards</code></pre><p>导入期间 refresh_interval 可调至 30s，完成后恢复 1s；深分页改用 search_after，映射严格控制高基数字段。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/tune-for-search-speed.html" target="_blank" rel="noopener">Elastic 性能调优</a></li><li><a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/advanced-configuration.html" target="_blank" rel="noopener">Elastic JVM 设置</a></li><li><a href="https://help.aliyun.com/zh/es/user-guide/optimize-the-performance-of-an-elasticsearch-cluster" target="_blank" rel="noopener">阿里云 Elasticsearch</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: elasticsearch
-  become: true
-  tasks:
-    - name: 设置 vm.max_map_count
-      ansible.posix.sysctl: &#123;name: vm.max_map_count, value: '262144', reload: true&#125;
-    - name: 设置 16G 堆
-      ansible.builtin.copy:
-        dest: /etc/elasticsearch/jvm.options.d/heap.options
-        mode: '0644'
-        content: "-Xms16g\n-Xmx16g\n"
-      notify: 重启 Elasticsearch
-  handlers:
-    - name: 重启 Elasticsearch
-      ansible.builtin.service: &#123;name: elasticsearch, state: restarted&#125;</code></pre>
-
-          
+          <h2>分片不是越多越好</h2>
+<p>主分片一旦创建不能直接缩小，因此应按生命周期内的数据量规划，而不是按当天数据量规划。时间序列优先 Data Stream + ILM，按 rollover 的文档数、大小或时间切分；查询跨越过多小分片会放大协调节点 CPU、堆和网络开销。</p>
+<pre><code># 查看分片大小、段数量与拒绝请求
+GET _cat/shards?v=true&bytes=gb
+GET _cat/segments?v=true
+GET _nodes/stats/thread_pool?filter_path=nodes.*.thread_pool.write</code></pre>
+<h2>查询保护与映射治理</h2>
+<p>动态映射只适合受控字段，日志中的任意 JSON 字段可能导致 mapping explosion。为关键词字段选择 keyword，为全文选择 text；不要对不聚合、不排序的字段启用不必要的 doc_values。查询层限制时间范围、聚合桶数和深分页，异常请求通过网关或应用侧提前拒绝。</p>
+<table><tr><th>症状</th><th>常见根因</th><th>优先动作</th></tr><tr><td>写入 rejected</td><td>Bulk 并发过高、磁盘慢</td><td>客户端退避并减小批次</td></tr><tr><td>查询慢</td><td>分片过多、深聚合</td><td>缩小范围、预聚合</td></tr><tr><td>堆高</td><td>fielddata、映射膨胀</td><td>修正映射并限制字段</td></tr></table>
+<p class="tuning-lead">Elasticsearch 8.x 受 JVM 堆、磁盘 I/O、分片数量和查询模式共同影响；经典基线是堆不超过 31GB、约占物理内存一半。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/07/25/elasticsearch-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -1968,31 +1877,23 @@ GET _cluster/health?level=shards</code></pre><p>导入期间 refresh_interval �
 
       
         
-          
-            <p class="tuning-lead">RocketMQ 5.x 调优围绕 CommitLog 顺序写、PageCache、副本策略和消费并发；Broker 磁盘优先 NVMe/高性能云盘并与系统日志隔离。</p><h2>Broker 参数</h2><pre><code>brokerRole=ASYNC_MASTER
-flushDiskType=ASYNC_FLUSH
-transientStorePoolEnable=false
-mapedFileSizeCommitLog=1073741824
-sendMessageThreadPoolNums=16
-osPageCacheBusyTimeOutMills=1000</code></pre><p>强一致场景改用 SYNC_MASTER+SYNC_FLUSH；普通事件可异步刷盘并依赖多副本。Producer 超时 3s、重试 2 次，批量消息控制在 1MB 内。</p><h2>消费闭环</h2><div class="mermaid">flowchart LR
-P[Producer批量/压缩]-->B[CommitLog顺序写]
-B-->R[副本同步/刷盘]
-R-->C[Consumer并发]
-C-->M[堆积与延迟监控]</div><p>消费者并发从 CPU×2 起步，顺序消息同队列单线程；监控 TPS、落盘延迟、重试主题和磁盘水位。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://rocketmq.apache.org/docs/" target="_blank" rel="noopener">RocketMQ 官方文档</a></li><li><a href="https://rocketmq.apache.org/docs/4.x/parameterConfiguration/01server/" target="_blank" rel="noopener">RocketMQ 服务端参数</a></li><li><a href="https://help.aliyun.com/zh/apsaramq-for-rocketmq/cloud-message-queue-rocketmq-4-0-series/user-guide/adjust-the-performance-of-a-rocketmq-instance" target="_blank" rel="noopener">阿里云 RocketMQ 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: rocketmq_broker
-  become: true
-  vars: &#123;rocketmq_home: /opt/rocketmq&#125;
-  tasks:
-    - name: 部署 Broker 参数
-      ansible.builtin.copy:
-        dest: "&#123;&#123; rocketmq_home &#125;&#125;/conf/broker.properties"
-        mode: '0644'
-        content: |
-          brokerRole=ASYNC_MASTER
-          flushDiskType=ASYNC_FLUSH
-          sendMessageThreadPoolNums=16
-          osPageCacheBusyTimeOutMills=1000</code></pre>
-
-          
+          <h2>Topic、队列与存储规划</h2>
+<p>队列数决定生产与消费并行度，但过多队列会增加文件句柄、元数据和重平衡成本。按目标峰值 TPS、单消息大小、消费耗时和副本能力规划队列，并将顺序消息的 sharding key 与队列映射稳定下来。Topic 权限应默认关闭自动创建，避免拼写错误产生无人消费的新 Topic。</p>
+<pre><code># 关注消费堆积和 Broker 存储状态
+mqadmin consumerProgress -n namesrv:9876
+mqadmin topicStatus -n namesrv:9876 -t YourTopic
+mqadmin clusterList -n namesrv:9876</code></pre>
+<h2>可靠性与重试边界</h2>
+<p>发送成功不等于业务成功。Producer 使用唯一业务键并开启幂等处理，Consumer 必须能重复消费；失败消息进入重试主题前要记录失败原因、重试次数和下一步操作。超过最大重试后进入死信队列，告警和人工补偿流程必须可演练。</p>
+<div class="tuning-tip">上线前压测应覆盖：大消息拒绝、Broker 重启、主从切换、磁盘接近阈值和消费者处理变慢。验收指标包括可恢复时间、堆积恢复速度与重复消费正确性。</div>
+<p class="tuning-lead">RocketMQ 5.x 调优围绕 CommitLog 顺序写、PageCache、副本策略和消费并发；Broker 磁盘优先 NVMe/高性能云盘并与系统日志隔离。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2024/06/20/rocketmq-tuning/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
         
       
     </div>
@@ -2030,7 +1931,7 @@ C-->M[堆积与延迟监控]</div><p>消费者并发从 CPU×2 起步，顺序�
 
   
   <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/">&lt;i class&#x3D;&quot;fa fa-angle-right&quot;&gt;&lt;&#x2F;i&gt;</a>
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><span class="pagination-next">下一页</span></a>
   </nav>
 
 
@@ -2654,6 +2555,5 @@ C-->M[堆积与延迟监控]</div><p>消费者并发从 CPU×2 起步，顺序�
 
   
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script><script>mermaid.initialize({startOnLoad:true,theme:"neutral"});</script>
 </body>
 </html>

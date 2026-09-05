@@ -2,10 +2,8 @@
 
 
 
-  
 
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
+<html class="theme-next pisces" lang="zh-Hans">
 <head>
   <meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -79,15 +77,15 @@
 
 
 
-<meta name="description" content="Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量&#x2F;压缩，Consumer 拉取与提交。Broker 基线num.network.threads&#x3D;8 num.io.threads&#x3D;16 socket.send.buffer.bytes&#x3D;1048576 socket.receive.buffer.bytes&#x3D;1048576 socket.reques">
+<meta name="description" content="分区与副本容量计算 分区数应以目标吞吐、单分区可持续吞吐、消费者并行度和恢复时间共同计算。扩分区会改变 key 到分区的映射，因此依赖同 key 全局顺序的主题需预留分区。三副本、min.insync.replicas&#x3D;2 与 acks&#x3D;all 是高可用常用组合，但要为复制流量和故障恢复预留磁盘空间。 # 识别滞后与副本异常 kafka-consumer-groups.sh --bootstrap">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Kafka 调优篇：吞吐、可靠性与消费者滞后">
 <meta property="og:url" content="https://kiritoowo.github.io/2024/08/29/kafka-tuning/index.html">
 <meta property="og:site_name" content="kirito">
-<meta property="og:description" content="Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量&#x2F;压缩，Consumer 拉取与提交。Broker 基线num.network.threads&#x3D;8 num.io.threads&#x3D;16 socket.send.buffer.bytes&#x3D;1048576 socket.receive.buffer.bytes&#x3D;1048576 socket.reques">
+<meta property="og:description" content="分区与副本容量计算 分区数应以目标吞吐、单分区可持续吞吐、消费者并行度和恢复时间共同计算。扩分区会改变 key 到分区的映射，因此依赖同 key 全局顺序的主题需预留分区。三副本、min.insync.replicas&#x3D;2 与 acks&#x3D;all 是高可用常用组合，但要为复制流量和故障恢复预留磁盘空间。 # 识别滞后与副本异常 kafka-consumer-groups.sh --bootstrap">
 <meta property="og:locale">
 <meta property="article:published_time" content="2024-08-29T02:00:00.000Z">
-<meta property="article:modified_time" content="2026-09-05T04:35:39.666Z">
+<meta property="article:modified_time" content="2026-09-05T05:37:41.527Z">
 <meta property="article:author" content="ljm">
 <meta property="article:tag" content="Kafka">
 <meta property="article:tag" content="吞吐">
@@ -105,7 +103,7 @@
     sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
     fancybox: true,
     tabs: true,
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    motion: {"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
     duoshuo: {
       userId: '0',
       author: '博主'
@@ -380,39 +378,48 @@
       
 
       
-        <p class="tuning-lead">Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量/压缩，Consumer 拉取与提交。</p><h2>Broker 基线</h2><pre><code>num.network.threads=8
-num.io.threads=16
-socket.send.buffer.bytes=1048576
-socket.receive.buffer.bytes=1048576
-socket.request.max.bytes=104857600
-log.segment.bytes=1073741824
-log.retention.hours=168
-default.replication.factor=3
-min.insync.replicas=2</code></pre><h2>Producer/Consumer</h2><pre><code>acks=all
-enable.idempotence=true
-compression.type=zstd
-linger.ms=10
-batch.size=131072
-fetch.min.bytes=1048576
-fetch.max.wait.ms=500
-max.poll.records=500
-enable.auto.commit=false</code></pre><p>分区数按吞吐和消费者并行度规划；监控 UnderReplicatedPartitions、RequestHandlerAvgIdlePercent、ConsumerLag、磁盘和网络水位。</p><div class="tuning-tip">演练杀 Broker、断磁盘、重复提交，确认 ISR、幂等和业务去重符合 RTO/RPO。</div><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://kafka.apache.org/documentation/" target="_blank" rel="noopener">Kafka 官方文档</a></li><li><a href="https://kafka.apache.org/documentation/#producerconfigs" target="_blank" rel="noopener">Kafka Producer 配置</a></li><li><a href="https://help.aliyun.com/zh/alikafka/user-guide/optimize-the-performance-of-an-alikafka-instance" target="_blank" rel="noopener">阿里云 Kafka 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: kafka
-  become: true
-  tasks:
-    - name: 部署 Kafka 性能配置
-      ansible.builtin.blockinfile:
-        path: /opt/kafka/config/server.properties
-        marker: "# &#123;mark&#125; ANSIBLE 调优"
-        block: |
-          num.network.threads=8
-          num.io.threads=16
-          socket.send.buffer.bytes=1048576
-          socket.receive.buffer.bytes=1048576
-          min.insync.replicas=2
-      notify: 重启 Kafka
-  handlers:
-    - name: 重启 Kafka
-      ansible.builtin.service: &#123;name: kafka, state: restarted&#125;</code></pre>
+        <h2>分区与副本容量计算</h2>
+<p>分区数应以目标吞吐、单分区可持续吞吐、消费者并行度和恢复时间共同计算。扩分区会改变 key 到分区的映射，因此依赖同 key 全局顺序的主题需预留分区。三副本、<code>min.insync.replicas=2</code> 与 <code>acks=all</code> 是高可用常用组合，但要为复制流量和故障恢复预留磁盘空间。</p>
+<pre><code># 识别滞后与副本异常
+kafka-consumer-groups.sh --bootstrap-server broker:9092 --describe --group your-group
+kafka-topics.sh --bootstrap-server broker:9092 --describe --topic your-topic</code></pre>
+<h2>消费者稳定性</h2>
+<p>Consumer 处理时间必须小于 <code>max.poll.interval.ms</code>；耗时任务应拆成小批或转给工作线程并正确提交 offset。不要因为滞后就无上限增加消费者，分区数才是并行度上限。重平衡频繁时检查部署滚动策略、session timeout、GC 停顿和外部依赖耗时。</p>
+<div class="tuning-warn">不要把消息保留策略当作备份。Kafka 的 retention 受时间和磁盘阈值影响，合规或审计数据应同步到对象存储或独立归档系统。</div>
+<p class="tuning-lead">Kafka 3.x 调优同时满足吞吐与交付语义：Broker 顺序写和页缓存，Producer 批量/压缩，Consumer 拉取与提交。</p>
+<span id="more"></span><h2>Broker 基线</h2><pre><code>num.network.threads=8
+<p>num.io.threads=16<br>
+socket.send.buffer.bytes=1048576<br>
+socket.receive.buffer.bytes=1048576<br>
+socket.request.max.bytes=104857600<br>
+log.segment.bytes=1073741824<br>
+log.retention.hours=168<br>
+default.replication.factor=3<br>
+min.insync.replicas=2</code></pre><h2>Producer/Consumer</h2><pre><code>acks=all<br>
+enable.idempotence=true<br>
+compression.type=zstd<br>
+linger.ms=10<br>
+batch.size=131072<br>
+fetch.min.bytes=1048576<br>
+fetch.max.wait.ms=500<br>
+max.poll.records=500<br>
+enable.auto.commit=false</code></pre><p>分区数按吞吐和消费者并行度规划；监控 UnderReplicatedPartitions、RequestHandlerAvgIdlePercent、ConsumerLag、磁盘和网络水位。</p><div class="tuning-tip">演练杀 Broker、断磁盘、重复提交，确认 ISR、幂等和业务去重符合 RTO/RPO。</div><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://kafka.apache.org/documentation/" target="_blank" rel="noopener">Kafka 官方文档</a></li><li><a href="https://kafka.apache.org/documentation/#producerconfigs" target="_blank" rel="noopener">Kafka Producer 配置</a></li><li><a href="https://help.aliyun.com/zh/alikafka/user-guide/optimize-the-performance-of-an-alikafka-instance" target="_blank" rel="noopener">阿里云 Kafka 调优</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: kafka<br>
+become: true<br>
+tasks:<br>
+- name: 部署 Kafka 性能配置<br>
+ansible.builtin.blockinfile:<br>
+path: /opt/kafka/config/server.properties<br>
+marker: “# &#123;mark&#125; ANSIBLE 调优”<br>
+block: |<br>
+num.network.threads=8<br>
+num.io.threads=16<br>
+socket.send.buffer.bytes=1048576<br>
+socket.receive.buffer.bytes=1048576<br>
+min.insync.replicas=2<br>
+notify: 重启 Kafka<br>
+handlers:<br>
+- name: 重启 Kafka<br>
+ansible.builtin.service: &#123;name: kafka, state: restarted&#125;</code></pre></p>
 
       
     </div>
@@ -605,7 +612,7 @@ enable.auto.commit=false</code></pre><p>分区数按吞吐和消费者并行度�
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">Broker 基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">Producer&#x2F;Consumer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">4.</span> <span class="nav-text">Ansible 配置</span></a></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">分区与副本容量计算</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">消费者稳定性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">Broker 基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">4.</span> <span class="nav-text">Producer&#x2F;Consumer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">5.</span> <span class="nav-text">参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">6.</span> <span class="nav-text">Ansible 配置</span></a></li></ol></div>
             
 
           </div>

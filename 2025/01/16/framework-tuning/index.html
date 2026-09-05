@@ -2,10 +2,8 @@
 
 
 
-  
 
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
+<html class="theme-next pisces" lang="zh-Hans">
 <head>
   <meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -79,15 +77,15 @@
 
 
 
-<meta name="description" content="以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。Spring Boot 与连接池server.tomcat.threads.max&#x3D;400 server.tomcat.accept-count&#x3D;200 spring.mvc.async.request-timeout&#x3D;5000 spring.datasource">
+<meta name="description" content="线程池隔离与超时传播 Spring 的 @Async、Web MVC 异步、消息消费和 Netty 业务执行器应分池，且每个线程池都要有队列上限、拒绝策略和指标。没有上限的队列会把过载转化为长尾延迟和堆内存膨胀。超时从入口传递到数据库和远程调用，避免上游已放弃、下游还持续执行。 # application.yml 示例：线程池必须受限 spring:   task:     execution:">
 <meta property="og:type" content="article">
 <meta property="og:title" content="框架调优篇：Spring、Spring Boot、MyBatis&#x2F;Plus、JPA、Netty 与 Sharding-JDBC">
 <meta property="og:url" content="https://kiritoowo.github.io/2025/01/16/framework-tuning/index.html">
 <meta property="og:site_name" content="kirito">
-<meta property="og:description" content="以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。Spring Boot 与连接池server.tomcat.threads.max&#x3D;400 server.tomcat.accept-count&#x3D;200 spring.mvc.async.request-timeout&#x3D;5000 spring.datasource">
+<meta property="og:description" content="线程池隔离与超时传播 Spring 的 @Async、Web MVC 异步、消息消费和 Netty 业务执行器应分池，且每个线程池都要有队列上限、拒绝策略和指标。没有上限的队列会把过载转化为长尾延迟和堆内存膨胀。超时从入口传递到数据库和远程调用，避免上游已放弃、下游还持续执行。 # application.yml 示例：线程池必须受限 spring:   task:     execution:">
 <meta property="og:locale">
 <meta property="article:published_time" content="2025-01-16T02:00:00.000Z">
-<meta property="article:modified_time" content="2026-09-05T04:35:39.668Z">
+<meta property="article:modified_time" content="2026-09-05T05:39:07.850Z">
 <meta property="article:author" content="ljm">
 <meta property="article:tag" content="Spring">
 <meta property="article:tag" content="Spring Boot">
@@ -107,7 +105,7 @@
     sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
     fancybox: true,
     tabs: true,
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    motion: {"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
     duoshuo: {
       userId: '0',
       author: '博主'
@@ -382,28 +380,43 @@
       
 
       
-        <p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p><h2>Spring Boot 与连接池</h2><pre><code>server.tomcat.threads.max=400
-server.tomcat.accept-count=200
-spring.mvc.async.request-timeout=5000
-spring.datasource.hikari.maximum-pool-size=32
-spring.datasource.hikari.connection-timeout=3000
-spring.datasource.hikari.leak-detection-threshold=5000
-management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre><h2>MyBatis/JPA/分库分表</h2><p>MyBatis/Plus 分页单页限制 1000 行，批量写使用 BATCH；JPA 关闭 Open Session in View，设置 <code>hibernate.jdbc.batch_size=50</code>、<code>order_inserts=true</code> 并用实体图解决 N+1。Sharding-JDBC 明确分片键、广播表和 SQL 重写日志。</p><h2>Netty</h2><pre><code>bossEventLoopGroup=1
-workerEventLoopGroup=CPU*2
-ChannelOption.SO_BACKLOG=4096
-ChannelOption.TCP_NODELAY=true
-WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线程池；关注 eventLoop pending tasks 与 direct memory。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html" target="_blank" rel="noopener">Spring Boot 配置</a></li><li><a href="https://mybatis.org/mybatis-3/performance.html" target="_blank" rel="noopener">MyBatis 性能 FAQ</a></li><li><a href="https://netty.io/wiki/user-guide-for-4.x.html" target="_blank" rel="noopener">Netty 用户指南</a></li><li><a href="https://help.aliyun.com/zh/mse/user-guide/performance-tuning" target="_blank" rel="noopener">阿里云 Spring Cloud 实践</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: spring_app
-  become: true
-  tasks:
-    - name: 写入 Spring Boot 参数
-      ansible.builtin.copy:
-        dest: /etc/myapp/application-prod.properties
-        mode: '0644'
-        content: |
-          server.tomcat.threads.max=400
-          spring.datasource.hikari.maximum-pool-size=32
-          spring.datasource.hikari.connection-timeout=3000
-          management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre>
+        <h2>线程池隔离与超时传播</h2>
+<p>Spring 的 <code>@Async</code>、Web MVC 异步、消息消费和 Netty 业务执行器应分池，且每个线程池都要有队列上限、拒绝策略和指标。没有上限的队列会把过载转化为长尾延迟和堆内存膨胀。超时从入口传递到数据库和远程调用，避免上游已放弃、下游还持续执行。</p>
+<pre><code># application.yml 示例：线程池必须受限
+spring:
+  task:
+    execution:
+      pool:
+        core-size: 8
+        max-size: 32
+        queue-capacity: 500
+      shutdown:
+        await-termination: true</code></pre>
+<h2>ORM 与分片边界</h2>
+<p>MyBatis/JPA 的首要性能问题通常是 N+1、无界分页和一次性加载大对象图。为列表接口设计 DTO 查询，限定字段和单页大小；写入采用批处理且控制事务批次。Sharding-JDBC 只有携带分片键时才会路由到少量分片，缺失分片键的查询应被审计或在业务层拒绝。</p>
+<p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p>
+<span id="more"></span><h2>Spring Boot 与连接池</h2><pre><code>server.tomcat.threads.max=400
+<p>server.tomcat.accept-count=200<br>
+spring.mvc.async.request-timeout=5000<br>
+spring.datasource.hikari.maximum-pool-size=32<br>
+spring.datasource.hikari.connection-timeout=3000<br>
+spring.datasource.hikari.leak-detection-threshold=5000<br>
+management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre><h2>MyBatis/JPA/分库分表</h2><p>MyBatis/Plus 分页单页限制 1000 行，批量写使用 BATCH；JPA 关闭 Open Session in View，设置 <code>hibernate.jdbc.batch_size=50</code>、<code>order_inserts=true</code> 并用实体图解决 N+1。Sharding-JDBC 明确分片键、广播表和 SQL 重写日志。</p><h2>Netty</h2><pre><code>bossEventLoopGroup=1<br>
+workerEventLoopGroup=CPU*2<br>
+ChannelOption.SO_BACKLOG=4096<br>
+ChannelOption.TCP_NODELAY=true<br>
+WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线程池；关注 eventLoop pending tasks 与 direct memory。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html" target="_blank" rel="noopener">Spring Boot 配置</a></li><li><a href="https://mybatis.org/mybatis-3/performance.html" target="_blank" rel="noopener">MyBatis 性能 FAQ</a></li><li><a href="https://netty.io/wiki/user-guide-for-4.x.html" target="_blank" rel="noopener">Netty 用户指南</a></li><li><a href="https://help.aliyun.com/zh/mse/user-guide/performance-tuning" target="_blank" rel="noopener">阿里云 Spring Cloud 实践</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: spring_app<br>
+become: true<br>
+tasks:<br>
+- name: 写入 Spring Boot 参数<br>
+ansible.builtin.copy:<br>
+dest: /etc/myapp/application-prod.properties<br>
+mode: ‘0644’<br>
+content: |<br>
+server.tomcat.threads.max=400<br>
+spring.datasource.hikari.maximum-pool-size=32<br>
+spring.datasource.hikari.connection-timeout=3000<br>
+management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre></p>
 
       
     </div>
@@ -600,7 +613,7 @@ WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线�
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">Spring Boot 与连接池</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">MyBatis&#x2F;JPA&#x2F;分库分表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">Netty</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">4.</span> <span class="nav-text">参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">5.</span> <span class="nav-text">Ansible 配置</span></a></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">线程池隔离与超时传播</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">ORM 与分片边界</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">Spring Boot 与连接池</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">4.</span> <span class="nav-text">MyBatis&#x2F;JPA&#x2F;分库分表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">5.</span> <span class="nav-text">Netty</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">6.</span> <span class="nav-text">参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">7.</span> <span class="nav-text">Ansible 配置</span></a></li></ol></div>
             
 
           </div>
