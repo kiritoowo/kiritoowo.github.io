@@ -10,7 +10,19 @@ tags:
   - 刷盘
 ---
 
-<p class="tuning-lead">RocketMQ 5.x 调优围绕 CommitLog 顺序写、PageCache、副本策略和消费并发；Broker 磁盘优先 NVMe/高性能云盘并与系统日志隔离。</p><h2>Broker 参数</h2><pre><code>brokerRole=ASYNC_MASTER
+<h2>Topic、队列与存储规划</h2>
+<p>队列数决定生产与消费并行度，但过多队列会增加文件句柄、元数据和重平衡成本。按目标峰值 TPS、单消息大小、消费耗时和副本能力规划队列，并将顺序消息的 sharding key 与队列映射稳定下来。Topic 权限应默认关闭自动创建，避免拼写错误产生无人消费的新 Topic。</p>
+<pre><code># 关注消费堆积和 Broker 存储状态
+mqadmin consumerProgress -n namesrv:9876
+mqadmin topicStatus -n namesrv:9876 -t YourTopic
+mqadmin clusterList -n namesrv:9876</code></pre>
+<h2>可靠性与重试边界</h2>
+<p>发送成功不等于业务成功。Producer 使用唯一业务键并开启幂等处理，Consumer 必须能重复消费；失败消息进入重试主题前要记录失败原因、重试次数和下一步操作。超过最大重试后进入死信队列，告警和人工补偿流程必须可演练。</p>
+<div class="tuning-tip">上线前压测应覆盖：大消息拒绝、Broker 重启、主从切换、磁盘接近阈值和消费者处理变慢。验收指标包括可恢复时间、堆积恢复速度与重复消费正确性。</div>
+<p class="tuning-lead">RocketMQ 5.x 调优围绕 CommitLog 顺序写、PageCache、副本策略和消费并发；Broker 磁盘优先 NVMe/高性能云盘并与系统日志隔离。</p>
+
+<!-- more --><h2>Broker 参数</h2><pre><code>brokerRole=ASYNC_MASTER
+
 flushDiskType=ASYNC_FLUSH
 transientStorePoolEnable=false
 mapedFileSizeCommitLog=1073741824
@@ -32,4 +44,3 @@ C-->M[堆积与延迟监控]</div><p>消费者并发从 CPU×2 起步，顺序�
           flushDiskType=ASYNC_FLUSH
           sendMessageThreadPoolNums=16
           osPageCacheBusyTimeOutMills=1000</code></pre>
-

@@ -10,7 +10,21 @@ tags:
   - 索引
 ---
 
-<p class="tuning-lead">MongoDB 7.x 的 WiredTiger 已较稳健，调优重点是工作集、索引选择性、写关注级别和连接池。副本集先保证多数派写入，再讨论吞吐。</p><h2>mongod.conf 基线</h2><pre><code>storage:
+<h2>工作集、索引和缓存关系</h2>
+<p>MongoDB 性能首先取决于活跃数据和活跃索引能否驻留在 WiredTiger 缓存与文件系统缓存中。缓存不足时会出现频繁页读取和尾延迟升高；缓存过大又会挤压操作系统页缓存。通过慢操作、执行计划和 WiredTiger cache 指标判断，而不是仅按内存百分比配置。</p>
+<pre><code>db.orders.aggregate([
+  {$match:{tenantId:1}},
+  {$indexStats:{}}
+])
+db.currentOp({active:true, secs_running:{$gt:5}})
+db.serverStatus().opcounters</code></pre>
+<h2>副本集与读写语义</h2>
+<p><code>writeConcern: {w: "majority"}</code> 提升故障下的数据安全，但延迟会受最慢投票节点影响；读偏好 secondary 可能读到旧数据。订单状态、库存等强一致读取留在 primary 或使用 afterClusterTime；报表、搜索候选等可接受最终一致的读再走副本。</p>
+<div class="tuning-tip">索引上线后观察写入延迟、索引尺寸、查询扫描文档数和复制延迟至少一个业务周期。未使用索引的删除要先确认不是低频任务或未来索引。</div>
+<p class="tuning-lead">MongoDB 7.x 的 WiredTiger 已较稳健，调优重点是工作集、索引选择性、写关注级别和连接池。副本集先保证多数派写入，再讨论吞吐。</p>
+
+<!-- more --><h2>mongod.conf 基线</h2><pre><code>storage:
+
   wiredTiger:
     engineConfig:
       cacheSizeGB: 12
@@ -38,4 +52,3 @@ db.serverStatus().wiredTiger.cache</code></pre><p>复合索引遵循 ESR（Equal
   handlers:
     - name: 重启 MongoDB
       ansible.builtin.service: {name: mongod, state: restarted}</code></pre>
-

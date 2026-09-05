@@ -12,7 +12,24 @@ tags:
   - Netty
 ---
 
-<p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p><h2>Spring Boot 与连接池</h2><pre><code>server.tomcat.threads.max=400
+<h2>线程池隔离与超时传播</h2>
+<p>Spring 的 <code>@Async</code>、Web MVC 异步、消息消费和 Netty 业务执行器应分池，且每个线程池都要有队列上限、拒绝策略和指标。没有上限的队列会把过载转化为长尾延迟和堆内存膨胀。超时从入口传递到数据库和远程调用，避免上游已放弃、下游还持续执行。</p>
+<pre><code># application.yml 示例：线程池必须受限
+spring:
+  task:
+    execution:
+      pool:
+        core-size: 8
+        max-size: 32
+        queue-capacity: 500
+      shutdown:
+        await-termination: true</code></pre>
+<h2>ORM 与分片边界</h2>
+<p>MyBatis/JPA 的首要性能问题通常是 N+1、无界分页和一次性加载大对象图。为列表接口设计 DTO 查询，限定字段和单页大小；写入采用批处理且控制事务批次。Sharding-JDBC 只有携带分片键时才会路由到少量分片，缺失分片键的查询应被审计或在业务层拒绝。</p>
+<p class="tuning-lead">以 Spring Boot 3.x + Java 21 为例，从线程模型、连接池和序列化边界入手；所有超时小于上游网关并为重试预留预算。</p>
+
+<!-- more --><h2>Spring Boot 与连接池</h2><pre><code>server.tomcat.threads.max=400
+
 server.tomcat.accept-count=200
 spring.mvc.async.request-timeout=5000
 spring.datasource.hikari.maximum-pool-size=32
@@ -34,4 +51,3 @@ WRITE_BUFFER_WATER_MARK=32MB/64MB</code></pre><p>阻塞操作投递到独立线�
           spring.datasource.hikari.maximum-pool-size=32
           spring.datasource.hikari.connection-timeout=3000
           management.endpoints.web.exposure.include=health,metrics,prometheus</code></pre>
-

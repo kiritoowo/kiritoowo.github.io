@@ -11,7 +11,19 @@ tags:
   - ZGC
 ---
 
-<p class="tuning-lead">以 JDK 21 LTS 为例，先设堆边界、GC 日志和 OOM 行为，再按停顿目标选收集器；容器预算需包含堆外与线程栈。</p><h2>通用参数</h2><pre><code>-Xms8g -Xmx8g -Xss1m
+<h2>对象分配比 GC 参数更重要</h2>
+<p>GC 调优的首选手段不是增加堆，而是减少无效分配。排查 JSON 字符串拼接、重复反序列化、大集合全量加载、临时 <code>byte[]</code> 和无限缓存。先从 GC 日志中确认分配速率、晋升速率与 Full GC 原因，再用 JFR 或 async-profiler 定位分配热点。</p>
+<pre><code># JDK 21：持续记录 5 分钟事件
+jcmd &lt;pid&gt; JFR.start name=allocation settings=profile duration=5m filename=/tmp/allocation.jfr
+jcmd &lt;pid&gt; GC.heap_info
+jcmd &lt;pid&gt; VM.native_memory summary</code></pre>
+<h2>收集器选择与验收</h2>
+<table><tr><th>现象</th><th>优先行动</th><th>不要直接做的事</th></tr><tr><td>Young GC 频繁</td><td>检查分配速率、缓存与批量大小</td><td>盲目增大 Xmx</td></tr><tr><td>Mixed GC 长</td><td>检查老年代增长和大对象</td><td>手工固定年轻代比例</td></tr><tr><td>Full GC</td><td>看 GC cause、元空间、直接内存</td><td>只更换收集器</td></tr><tr><td>p99 抖动</td><td>关联 safepoint、CPU 抢占和 I/O</td><td>只看平均 GC 时间</td></tr></table>
+<p>验收应保留压测前后的吞吐、p50/p95/p99、GC 总暂停、最大暂停、CPU 使用率与容器 RSS。若 ZGC 改善停顿却明显增加 CPU，应根据业务 SLO 而非单项指标决策。</p>
+<p class="tuning-lead">以 JDK 21 LTS 为例，先设堆边界、GC 日志和 OOM 行为，再按停顿目标选收集器；容器预算需包含堆外与线程栈。</p>
+
+<!-- more --><h2>通用参数</h2><pre><code>-Xms8g -Xmx8g -Xss1m
+
 -XX:MaxMetaspaceSize=512m
 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/jvm
 -XX:+ExitOnOutOfMemoryError
@@ -31,4 +43,3 @@ E-->F</div><p class="tuning-warn">JDK 21 自适应策略通常优于手工固定
         dest: /etc/profile.d/jvm.sh
         mode: '0644'
         content: "export JAVA_TOOL_OPTIONS='-Xms8g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=100'\n"</code></pre>
-

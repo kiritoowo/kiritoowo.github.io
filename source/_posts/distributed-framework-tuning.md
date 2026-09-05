@@ -11,7 +11,17 @@ tags:
   - Sentinel
 ---
 
-<p class="tuning-lead">分布式调优首先控制重试和连接总量，把超时、重试、熔断、限流、注册中心和任务调度纳入容量预算，避免重试风暴。</p><h2>组件基线</h2><table><tr><th>组件</th><th>生产建议</th></tr><tr><td>Nacos</td><td>≥3 节点、鉴权；长轮询 30s，本地快照</td></tr><tr><td>OpenFeign</td><td>connectTimeout 1s、readTimeout 3s；幂等请求最多重试 1 次</td></tr><tr><td>Gateway</td><td>连接池按下游容量，response-timeout 5s</td></tr><tr><td>Sentinel</td><td>QPS+并发双维度限流，规则持久化 Nacos</td></tr><tr><td>Seata</td><td>AT 事务短小，undo 日志清理；强一致评估 TCC</td></tr><tr><td>XXL-JOB</td><td>线程池隔离，错峰触发，失败重试≤2</td></tr></table><h2>重试预算流程</h2><div class="mermaid">flowchart TD
+<h2>超时、重试与熔断必须成组设计</h2>
+<p>重试只有在调用可幂等、剩余时间预算充足、下游没有整体过载时才有价值。每一跳超时应递减：网关总预算大于应用预算，应用预算大于 Feign/数据库预算；重试引入的放大倍数要纳入下游容量。Sentinel 降级响应必须是业务可接受的默认值，而不是空响应。</p>
+<pre><code># 建议统一记录的远程调用字段
+traceId, targetService, route, timeoutMs, retryCount,
+statusCode, exceptionType, elapsedMs, fallbackName</code></pre>
+<h2>注册中心与任务调度运维</h2>
+<p>Nacos 配置变更使用命名空间、灰度 Data ID 与回滚版本，避免全量推送错误参数。Seata 的全局锁等待和 undo_log 膨胀需要看板与清理策略。XXL-JOB 任务需要幂等业务键、执行超时、分片参数和告警收敛，禁止把长事务任务直接放入调度器线程。</p>
+<p class="tuning-lead">分布式调优首先控制重试和连接总量，把超时、重试、熔断、限流、注册中心和任务调度纳入容量预算，避免重试风暴。</p>
+
+<!-- more --><h2>组件基线</h2><table><tr><th>组件</th><th>生产建议</th></tr><tr><td>Nacos</td><td>≥3 节点、鉴权；长轮询 30s，本地快照</td></tr><tr><td>OpenFeign</td><td>connectTimeout 1s、readTimeout 3s；幂等请求最多重试 1 次</td></tr><tr><td>Gateway</td><td>连接池按下游容量，response-timeout 5s</td></tr><tr><td>Sentinel</td><td>QPS+并发双维度限流，规则持久化 Nacos</td></tr><tr><td>Seata</td><td>AT 事务短小，undo 日志清理；强一致评估 TCC</td></tr><tr><td>XXL-JOB</td><td>线程池隔离，错峰触发，失败重试≤2</td></tr></table><h2>重试预算流程</h2><div class="mermaid">flowchart TD
+
 U[用户请求]-->G[Gateway 5s]
 G-->F[Feign 1s/3s 重试1]
 F-->S[Sentinel 熔断限流]
@@ -29,4 +39,3 @@ D-->DB[(数据库连接池)]</div><p>ShardingSphere-Proxy 开启 SQL 审计和�
           spring.cloud.gateway.httpclient.response-timeout=5s
           spring.cloud.sentinel.eager=true
           spring.cloud.nacos.discovery.watch.enabled=true</code></pre>
-

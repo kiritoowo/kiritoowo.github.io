@@ -10,7 +10,21 @@ tags:
   - SQL
 ---
 
-<p class="tuning-lead">MySQL 8.0 调优围绕 InnoDB Buffer Pool、redo/binlog 持久化、连接池和慢 SQL 证据展开，示例面向 32GB 专用节点。</p><h2>InnoDB 基线</h2><pre><code>[mysqld]
+<h2>先识别工作负载，再设置参数</h2>
+<p>OLTP、高并发读、批处理导入和分析型查询的参数目标不同。OLTP 优先稳定事务延迟与锁等待；导入任务优先顺序 I/O 和批量提交；分析查询则需要避免它们抢占线上 Buffer Pool。将批任务安排在低峰，或放到只读副本，而不是为一次导入长期放宽持久化参数。</p>
+<pre><code># 最耗时语句、索引使用和锁等待
+SELECT digest_text, count_star, avg_timer_wait
+FROM performance_schema.events_statements_summary_by_digest
+ORDER BY sum_timer_wait DESC LIMIT 10;
+SELECT * FROM sys.schema_unused_indexes;
+SELECT * FROM sys.innodb_lock_waits;</code></pre>
+<h2>索引变更与事务边界</h2>
+<p>索引前先确认过滤选择性和返回列，避免为了覆盖索引写入过宽索引。大表 DDL 使用 Online DDL 或 gh-ost、pt-online-schema-change，并在副本先演练。事务应短小，避免把 RPC、文件上传和用户交互包在事务中；批量更新用主键范围分段，控制单批行数以降低 undo 与锁持有时间。</p>
+<div class="tuning-tip">提交参数的最低验收集合：慢查询 Top 10、Buffer Pool 读命中、行锁等待、redo checkpoint age、主从延迟以及磁盘 fsync p99。</div>
+<p class="tuning-lead">MySQL 8.0 调优围绕 InnoDB Buffer Pool、redo/binlog 持久化、连接池和慢 SQL 证据展开，示例面向 32GB 专用节点。</p>
+
+<!-- more --><h2>InnoDB 基线</h2><pre><code>[mysqld]
+
 innodb_buffer_pool_size=24G
 innodb_buffer_pool_instances=8
 innodb_log_file_size=2G
@@ -45,4 +59,3 @@ WHERE VARIABLE_NAME IN ('Threads_connected','Innodb_buffer_pool_reads');</code><
   handlers:
     - name: 重启 MySQL
       ansible.builtin.service: {name: mysql, state: restarted}</code></pre>
-

@@ -46,6 +46,9 @@ theme_config:
     theme:
       light: normal
       dark: night
+  motion:
+    enable: false
+  pace: false
   language: zh-CN
 deploy:
   type: git

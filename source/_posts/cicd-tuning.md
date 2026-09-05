@@ -12,7 +12,20 @@ tags:
   - Kubernetes
 ---
 
-<p class="tuning-lead">CI/CD 调优目标是更短反馈时间和可重复发布。缓存依赖与镜像层、并行化测试、限制构建资源，并将 SBOM、签名和漏洞门禁纳入流水线。</p><h2>构建与缓存</h2><pre><code># Git 全局配置
+<h2>流水线缓存与并行化边界</h2>
+<p>缓存只保存可重建的依赖和中间产物，不缓存密钥、部署凭据和未验证的构建结果。Maven、npm、Docker layer cache 要按锁文件和基础镜像摘要分 key；缓存命中后仍执行校验。测试按单元、集成、端到端分层并行，集成测试依赖临时数据库或 Testcontainers。</p>
+<pre><code># 发布前的最小门禁示例
+mvn -B -T 1C verify
+trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign verify "$IMAGE"
+kubectl apply --server-side --dry-run=server -f k8s/</code></pre>
+<h2>发布策略与供应链</h2>
+<p>Deployment 使用 RollingUpdate 时设置 <code>maxUnavailable=0</code> 和适度 <code>maxSurge</code>，readinessProbe 必须验证真实依赖可用。灰度期间比较错误率、p95、资源使用和业务转化率，自动回滚不能只看 Pod 是否 Running。Ansible Vault、GitLab protected variables 和 OIDC 短期凭据优于长期明文 token。</p>
+<div class="tuning-warn">不要在 CI 日志打印环境变量、云凭据或完整构建命令中的 token；依赖升级必须经过锁文件变更审查和漏洞报告。</div>
+<p class="tuning-lead">CI/CD 调优目标是更短反馈时间和可重复发布。缓存依赖与镜像层、并行化测试、限制构建资源，并将 SBOM、签名和漏洞门禁纳入流水线。</p>
+
+<!-- more --><h2>构建与缓存</h2><pre><code># Git 全局配置
+
 git config --global fetch.parallel 8
 git config --global core.compression 1
 # Maven 并行构建
@@ -44,4 +57,3 @@ F--失败-->H[自动回滚]</div><p>Ansible 使用幂等模块、ansible-lint �
   handlers:
     - name: 重启 Docker
       ansible.builtin.service: {name: docker, state: restarted}</code></pre>
-
