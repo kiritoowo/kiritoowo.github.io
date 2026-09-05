@@ -3,7 +3,7 @@ title: kirito
 subtitle: 醒醒 该写代码了
 description: 无限进步
 author: ljm
-language: zh-CN
+language: zh-Hans
 timezone: Asia/Shanghai
 url: https://kiritoowo.github.io
 root: /
@@ -15,14 +15,14 @@ theme_config:
     position: left
     display: post
   menu:
-    home: / || fa fa-home
-    categories: /categories/ || fa fa-th
-    archives: /archives/ || fa fa-archive
+    home: /||home
+    categories: /categories/||th
+    archives: /archives/||archive
   avatar: /images/avatar.jpg
   author: ljm
   description: 无限进步
   social:
-    GitHub: https://github.com/kiritoowo || fab fa-github
+    GitHub: https://github.com/kiritoowo || github
   post_meta:
     item_text: true
   mermaid:
@@ -34,10 +34,14 @@ theme_config:
   footerpowered:
     enable: true
   search:
-    path: search.xml
+    path: search.json
     field: post
     format: html
     limit: 10000
+  local_search:
+    enable: true
+    trigger: auto
+    top_n_per_article: 1
   codeblock:
     theme:
       light: normal
