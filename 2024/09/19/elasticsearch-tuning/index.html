@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="Elasticsearch 从节点角色、堆与文件缓存、分片、映射、写入、查询和 ILM 入手，建立容量与性能调优闭环。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Elasticsearch 调优">
+<meta property="og:url" content="https://kiritoowo.github.io/2024/09/19/elasticsearch-tuning/index.html">
+<meta property="og:site_name" content="kirito">
+<meta property="og:description" content="Elasticsearch 从节点角色、堆与文件缓存、分片、映射、写入、查询和 ILM 入手，建立容量与性能调优闭环。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-09-19T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-12-31T02:00:00.000Z">
+<meta property="article:author" content="ljm">
+<meta property="article:tag" content="Elasticsearch">
+<meta property="article:tag" content="ILM">
+<meta property="article:tag" content="分片">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://kiritoowo.github.io/2024/09/19/elasticsearch-tuning/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2024/09/19/elasticsearch-tuning/","path":"2024/09/19/elasticsearch-tuning/","title":"Elasticsearch 调优"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Elasticsearch 调优 | kirito</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%AE%9A%E4%B9%89%E5%9C%BA%E6%99%AF%E5%92%8C%E7%89%88%E6%9C%AC%E5%9F%BA%E7%BA%BF"><span class="nav-text">1. 定义场景和版本基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E8%8A%82%E7%82%B9%E8%A7%92%E8%89%B2%E5%92%8C%E7%A1%AC%E4%BB%B6"><span class="nav-text">2. 节点角色和硬件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%A0%86%E4%B8%8E%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%BC%93%E5%AD%98"><span class="nav-text">3. 堆与文件系统缓存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%88%86%E7%89%87%E6%98%AF%E6%9C%80%E9%87%8D%E8%A6%81%E7%9A%84%E5%AE%B9%E9%87%8F%E5%8D%95%E4%BD%8D"><span class="nav-text">4. 分片是最重要的容量单位</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Mapping-%E5%85%88%E4%BA%8E%E6%9F%A5%E8%AF%A2%E8%B0%83%E4%BC%98"><span class="nav-text">5. Mapping 先于查询调优</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E6%98%8E%E7%A1%AE%E5%AD%97%E6%AE%B5%E7%B1%BB%E5%9E%8B"><span class="nav-text">5.1 明确字段类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E9%81%BF%E5%85%8D%E8%B6%85%E5%A4%A7%E6%96%87%E6%A1%A3%E5%92%8C%E5%B5%8C%E5%A5%97%E7%88%86%E7%82%B8"><span class="nav-text">5.2 避免超大文档和嵌套爆炸</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E5%86%99%E5%85%A5%E8%B0%83%E4%BC%98"><span class="nav-text">6. 写入调优</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Segment%E3%80%81%E5%88%B7%E6%96%B0%E5%92%8C%E5%90%88%E5%B9%B6"><span class="nav-text">7. Segment、刷新和合并</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E6%9F%A5%E8%AF%A2%E4%B8%8E%E8%81%9A%E5%90%88"><span class="nav-text">8. 查询与聚合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E7%BC%93%E5%AD%98%E5%92%8C%E7%86%94%E6%96%AD%E5%99%A8"><span class="nav-text">9. 缓存和熔断器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E7%A3%81%E7%9B%98%E6%B0%B4%E4%BD%8D%E3%80%81%E6%81%A2%E5%A4%8D%E4%B8%8E%E5%BF%AB%E7%85%A7"><span class="nav-text">10. 磁盘水位、恢复与快照</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E5%8E%8B%E6%B5%8B%E5%92%8C%E5%9B%9E%E6%BB%9A"><span class="nav-text">11. 压测和回滚</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">12. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#13-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">13. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2024/09/19/elasticsearch-tuning/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Elasticsearch 调优 | kirito">
+      <meta itemprop="description" content="Elasticsearch 从节点角色、堆与文件缓存、分片、映射、写入、查询和 ILM 入手，建立容量与性能调优闭环。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Elasticsearch 调优
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-09-19 10:00:00" itemprop="dateCreated datePublished" datetime="2024-09-19T10:00:00+08:00">2024-09-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-31 10:00:00" itemprop="dateModified" datetime="2025-12-31T10:00:00+08:00">2025-12-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/%E6%90%9C%E7%B4%A2/" itemprop="url" rel="index"><span itemprop="name">搜索</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Elasticsearch 从节点角色、堆与文件缓存、分片、映射、写入、查询和 ILM 入手，建立容量与性能调优闭环。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>Elasticsearch 调优的主线是让工作集尽量命中文件系统缓存，并控制分片、字段和聚合的数量。多数性能问题来自数据模型和容量，而不是一个隐藏的 JVM 参数。</p>
+<span id="more"></span>
+
+<h2 id="1-定义场景和版本基线"><a href="#1-定义场景和版本基线" class="headerlink" title="1. 定义场景和版本基线"></a>1. 定义场景和版本基线</h2><p>本文适用于 Elasticsearch 8.x&#x2F;9.x 的生产思路，具体设置以所用版本文档为准。先区分：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>主要目标</th>
+<th>关键约束</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>日志&#x2F;时序</td>
+<td>持续写入、按时间淘汰</td>
+<td>shard 数、segment merge、磁盘</td>
+</tr>
+<tr>
+<td>商品&#x2F;内容搜索</td>
+<td>查询 p99、相关性</td>
+<td>mapping、缓存、聚合</td>
+</tr>
+<tr>
+<td>向量检索</td>
+<td>召回率与延迟</td>
+<td>原生内存、页缓存、向量维度</td>
+</tr>
+<tr>
+<td>安全分析</td>
+<td>高基数聚合与长保留</td>
+<td>热温冷分层、查询隔离</td>
+</tr>
+</tbody></table>
+<p>基线必须记录文档数、每日增量、平均文档大小、保留周期、主分片和副本数、峰值索引速率、查询组合及 p95&#x2F;p99。</p>
+<h2 id="2-节点角色和硬件"><a href="#2-节点角色和硬件" class="headerlink" title="2. 节点角色和硬件"></a>2. 节点角色和硬件</h2><p>生产至少使用三个有资格参与选主的节点，避免两个节点无法可靠形成多数派。较大集群把 master、data、ingest、transform 等角色按压力拆分。</p>
+<p>优先级通常是：足够内存 -&gt; 本地 SSD&#x2F;NVMe -&gt; 稳定网络 -&gt; 更多 CPU。Elasticsearch 大量依赖 mmap 和 PageCache，远程网络盘必须确认 IOPS、吞吐和尾延迟。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 主机和进程基线</span></span><br><span class="line">iostat -xz 1</span><br><span class="line">vmstat 1</span><br><span class="line">pidstat -dur 1</span><br><span class="line">curl -s localhost:9200/_nodes/stats/jvm,fs,os,process?pretty</span><br></pre></td></tr></table></figure>
+
+<p>不要把数据目录放在 NFS。生产禁用 swap，或者至少将 <code>vm.swappiness</code> 降到 1 并使用 <code>bootstrap.memory_lock</code> 锁定 JVM 内存。</p>
+<h2 id="3-堆与文件系统缓存"><a href="#3-堆与文件系统缓存" class="headerlink" title="3. 堆与文件系统缓存"></a>3. 堆与文件系统缓存</h2><p>现代 Elasticsearch 能按节点角色自动设置 JVM 堆，优先保留自动配置。手工设置时：</p>
+<ul>
+<li><code>Xms</code> 与 <code>Xmx</code> 相同；</li>
+<li>堆不超过节点可用内存 50%；</li>
+<li>通常保持在压缩对象指针阈值以下；</li>
+<li>其余内存留给文件系统缓存和 off-heap。</li>
+</ul>
+<p>64 GiB 数据节点可从 28～30 GiB 堆起步，而不是给 JVM 60 GiB。堆越大，PageCache 越小，Lucene 读取可能更慢。</p>
+<figure class="highlight text"><figcaption><span>/etc/elasticsearch/jvm.options.d/heap.options</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-Xms30g</span><br><span class="line">-Xmx30g</span><br><span class="line">-Xlog:gc*:file=/var/log/elasticsearch/gc.log:utctime,level,tags:filecount=32,filesize=64m</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s localhost:9200/_nodes/_all/jvm?filter_path=nodes.*.jvm.mem,**.using_compressed_ordinary_object_pointers | jq</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-分片是最重要的容量单位"><a href="#4-分片是最重要的容量单位" class="headerlink" title="4. 分片是最重要的容量单位"></a>4. 分片是最重要的容量单位</h2><p>每个分片都是一个 Lucene 索引，具有 segment、文件句柄、缓存和集群状态开销。大量小分片会让 master、GC、查询 fan-out 和恢复都变慢。</p>
+<p>日志类数据常以单个主分片 10～50 GiB 为起始范围，再按恢复时间和查询并行度压测。不要把“每节点固定多少分片”的旧经验当成硬规则。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看分片大小、数量和分配</span></span><br><span class="line">curl -s <span class="string">&#x27;localhost:9200/_cat/shards?v&amp;bytes=gb&amp;s=store:desc&#x27;</span></span><br><span class="line">curl -s <span class="string">&#x27;localhost:9200/_cat/indices?v&amp;bytes=gb&amp;s=store.size:desc&#x27;</span></span><br><span class="line">curl -s <span class="string">&#x27;localhost:9200/_cluster/allocation/explain?pretty&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>数据流配合 ILM rollover，以 <code>max_primary_shard_size</code> 和时间共同控制分片：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">PUT _ilm/policy/logs-hot-warm</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;policy&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;phases&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;hot&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;actions&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;rollover&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;max_primary_shard_size&quot;</span><span class="punctuation">:</span> <span class="string">&quot;40gb&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;max_age&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1d&quot;</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;warm&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;min_age&quot;</span><span class="punctuation">:</span> <span class="string">&quot;7d&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;actions&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;forcemerge&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;max_num_segments&quot;</span><span class="punctuation">:</span> <span class="number">1</span> <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;delete&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;min_age&quot;</span><span class="punctuation">:</span> <span class="string">&quot;30d&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;actions&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;delete&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>Force merge 消耗大量 I&#x2F;O，只在索引不再写入后于低峰执行。</p>
+<h2 id="5-Mapping-先于查询调优"><a href="#5-Mapping-先于查询调优" class="headerlink" title="5. Mapping 先于查询调优"></a>5. Mapping 先于查询调优</h2><h3 id="5-1-明确字段类型"><a href="#5-1-明确字段类型" class="headerlink" title="5.1 明确字段类型"></a>5.1 明确字段类型</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">PUT _index_template/orders-template</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;index_patterns&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;orders-*&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;template&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;settings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;number_of_shards&quot;</span><span class="punctuation">:</span> <span class="number">3</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;number_of_replicas&quot;</span><span class="punctuation">:</span> <span class="number">1</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;mappings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;dynamic&quot;</span><span class="punctuation">:</span> <span class="string">&quot;strict&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;properties&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;order_id&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;keyword&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;tenant_id&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;keyword&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;created_at&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;date&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;amount&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;scaled_float&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;scaling_factor&quot;</span><span class="punctuation">:</span> <span class="number">100</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;description&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;text&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>避免 mapping explosion：动态业务属性不要无限生成字段；用户 ID、请求 ID 等精确值用 <code>keyword</code>；不参与搜索和聚合的字段可关闭索引或 doc values。不要对 <code>text</code> 开启 fielddata 来救急，它可能迅速耗尽堆。</p>
+<h3 id="5-2-避免超大文档和嵌套爆炸"><a href="#5-2-避免超大文档和嵌套爆炸" class="headerlink" title="5.2 避免超大文档和嵌套爆炸"></a>5.2 避免超大文档和嵌套爆炸</h3><p>更新文档会重写 Lucene 文档。高频变化的大数组应拆模；<code>nested</code> 每个元素都会成为隐藏文档。建立单文档字节数、数组元素和 nested 数量上限。</p>
+<h2 id="6-写入调优"><a href="#6-写入调优" class="headerlink" title="6. 写入调优"></a>6. 写入调优</h2><p>Bulk 按字节数和耗时控制，不只看文档条数。以 5～15 MiB&#x2F;批开始压测，逐步增加直到吞吐不再改善或 p99&#x2F;内存恶化。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 写入前临时降低刷新频率，不应长期遗漏恢复步骤</span></span><br><span class="line">curl -X PUT localhost:9200/orders-write/_settings \</span><br><span class="line">  -H <span class="string">&#x27;Content-Type: application/json&#x27;</span> \</span><br><span class="line">  -d <span class="string">&#x27;&#123;&quot;index&quot;:&#123;&quot;refresh_interval&quot;:&quot;30s&quot;&#125;&#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>首次全量导入且允许暂时降低可用性时，可临时设副本为 0，导入后恢复副本并等待集群绿色。在线写入不要这样做。</p>
+<p>客户端对 429 使用指数退避和抖动。增加并发直到单节点 CPU、write thread pool、merge 或磁盘首先饱和，不能无限增加 Bulk 线程。</p>
+<h2 id="7-Segment、刷新和合并"><a href="#7-Segment、刷新和合并" class="headerlink" title="7. Segment、刷新和合并"></a>7. Segment、刷新和合并</h2><p>刷新产生可搜索 segment，频率越高，写入和合并成本越大。默认刷新策略通常适合在线检索；日志场景可根据可见性 SLO 增大 <code>refresh_interval</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">curl -s localhost:9200/_nodes/stats/indices/refresh,merge,segments,translog?pretty</span><br><span class="line">curl -s localhost:9200/_cat/thread_pool/write,search,merge?v</span><br></pre></td></tr></table></figure>
+
+<p>观察 refresh time、merge throttling、segment count、写线程拒绝和 translog。手工调 Lucene merge policy 前，先修复过小分片、过频刷新和磁盘不足。</p>
+<h2 id="8-查询与聚合"><a href="#8-查询与聚合" class="headerlink" title="8. 查询与聚合"></a>8. 查询与聚合</h2><ul>
+<li>精确过滤放在 <code>bool.filter</code>，无需计算 score；</li>
+<li>用 <code>_source</code> filtering 只返回需要字段；</li>
+<li>避免大 <code>from + size</code>，深分页使用 <code>search_after</code> + PIT；</li>
+<li>高基数聚合限制时间范围和 bucket 数；</li>
+<li>用户输入禁止直接构造无限复杂的正则和脚本查询；</li>
+<li>只在诊断单条慢查询时使用 Profile API，它自身有开销。</li>
+</ul>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">POST orders-*/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">50</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;track_total_hits&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;_source&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;order_id&quot;</span><span class="punctuation">,</span> <span class="string">&quot;amount&quot;</span><span class="punctuation">,</span> <span class="string">&quot;created_at&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;bool&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;tenant_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1001&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;range&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;created_at&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;gte&quot;</span><span class="punctuation">:</span> <span class="string">&quot;now-7d&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">]</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;sort&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span> <span class="attr">&quot;created_at&quot;</span><span class="punctuation">:</span> <span class="string">&quot;desc&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span> <span class="attr">&quot;order_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;desc&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="9-缓存和熔断器"><a href="#9-缓存和熔断器" class="headerlink" title="9. 缓存和熔断器"></a>9. 缓存和熔断器</h2><p>Query Cache、Request Cache 和 PageCache 命中条件不同。不要为追求命中率扩大 JVM 堆；过滤条件不稳定时缓存价值很低。检查 breaker 而不是调大到失去保护：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s localhost:9200/_nodes/stats/breaker,indices/query_cache,indices/request_cache?pretty</span><br></pre></td></tr></table></figure>
+
+<p>触发 circuit breaker 表明查询或聚合超出预算。首选缩小时间范围、减少 buckets、拆分请求或隔离分析查询。</p>
+<h2 id="10-磁盘水位、恢复与快照"><a href="#10-磁盘水位、恢复与快照" class="headerlink" title="10. 磁盘水位、恢复与快照"></a>10. 磁盘水位、恢复与快照</h2><p>磁盘水位会影响分片分配，并在 flood stage 对索引设置只读保护。水位告警必须早于默认阈值，预留节点故障后重新分配一份最大分片的空间。</p>
+<p>Snapshot 是备份，副本不是。定期对快照做隔离恢复演练，记录恢复速度，反推分片大小和 RTO。节点重启或扩容时限制恢复并发，避免恢复流量压垮在线查询。</p>
+<h2 id="11-压测和回滚"><a href="#11-压测和回滚" class="headerlink" title="11. 压测和回滚"></a>11. 压测和回滚</h2><p>索引和查询要同时压测，数据规模至少接近生产工作集。比较：indexing rate、search p95&#x2F;p99、GC、heap、PageCache、segment、merge、thread pool rejected、磁盘延迟和副本恢复时间。</p>
+<p>Mapping、主分片数等变更通常需要新索引 + reindex + alias 切换。先保留旧索引，验收后再删除，这就是可靠回滚路径。</p>
+<h2 id="12-参考资料"><a href="#12-参考资料" class="headerlink" title="12. 参考资料"></a>12. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance">Elastic 生产性能指南</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/reference/elasticsearch/index-settings/index-modules">Elasticsearch 索引设置</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/reference/elasticsearch/jvm-settings/">Elasticsearch JVM 设置</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/size-shards">分片大小最佳实践</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/manage-data/lifecycle/index-lifecycle-management">索引生命周期 ILM</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed">Tune for indexing speed</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed">Tune for search speed</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/es/user-guide/performance-tuning/">阿里云 Elasticsearch 性能调优</a></li>
+</ul>
+<h2 id="13-Ansible-配置"><a href="#13-Ansible-配置" class="headerlink" title="13. Ansible 配置"></a>13. Ansible 配置</h2><figure class="highlight yaml"><figcaption><span>elasticsearch-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">部署</span> <span class="string">Elasticsearch</span> <span class="string">数据节点基线</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">elasticsearch_data</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">elasticsearch_cluster_name:</span> <span class="string">search-prod</span></span><br><span class="line">    <span class="attr">elasticsearch_heap_size:</span> <span class="string">30g</span></span><br><span class="line">    <span class="attr">elasticsearch_seed_hosts:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">10.0</span><span class="number">.2</span><span class="number">.11</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">10.0</span><span class="number">.2</span><span class="number">.12</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">10.0</span><span class="number">.2</span><span class="number">.13</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">mmap</span> <span class="string">上限</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/sysctl.d/60-elasticsearch.conf</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          vm.max_map_count = 262144</span></span><br><span class="line"><span class="string">          vm.swappiness = 1</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">应用</span> <span class="string">Elasticsearch</span> <span class="string">内核参数</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">JVM</span> <span class="string">堆配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/elasticsearch/jvm.options.d/heap.options</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">root</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">elasticsearch</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0640&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          -Xms&#123;&#123; elasticsearch_heap_size &#125;&#125;</span></span><br><span class="line"><span class="string">          -Xmx&#123;&#123; elasticsearch_heap_size &#125;&#125;</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重启</span> <span class="string">Elasticsearch</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入节点配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/elasticsearch/elasticsearch.yml</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">root</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">elasticsearch</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0660&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          cluster.name: &#123;&#123; elasticsearch_cluster_name &#125;&#125;</span></span><br><span class="line"><span class="string">          node.name: &#123;&#123; inventory_hostname &#125;&#125;</span></span><br><span class="line"><span class="string">          node.roles: [ data, ingest ]</span></span><br><span class="line"><span class="string">          path.data: /data/elasticsearch</span></span><br><span class="line"><span class="string">          path.logs: /var/log/elasticsearch</span></span><br><span class="line"><span class="string">          network.host: &#123;&#123; ansible_default_ipv4.address &#125;&#125;</span></span><br><span class="line"><span class="string">          discovery.seed_hosts: &#123;&#123; elasticsearch_seed_hosts | to_json &#125;&#125;</span></span><br><span class="line"><span class="string">          bootstrap.memory_lock: true</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重启</span> <span class="string">Elasticsearch</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置</span> <span class="string">systemd</span> <span class="string">内存锁定</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/systemd/system/elasticsearch.service.d/override.conf</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          [Service]</span></span><br><span class="line"><span class="string">          LimitMEMLOCK=infinity</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重启</span> <span class="string">Elasticsearch</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">应用</span> <span class="string">Elasticsearch</span> <span class="string">内核参数</span></span><br><span class="line">      <span class="attr">ansible.builtin.command:</span> <span class="string">/usr/sbin/sysctl</span> <span class="string">--system</span></span><br><span class="line">      <span class="attr">changed_when:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">      <span class="attr">ansible.builtin.systemd_service:</span></span><br><span class="line">        <span class="attr">daemon_reload:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重启</span> <span class="string">Elasticsearch</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">elasticsearch</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">restarted</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Elasticsearch/" rel="tag"># Elasticsearch</a>
+              <a href="/tags/%E5%88%86%E7%89%87/" rel="tag"># 分片</a>
+              <a href="/tags/ILM/" rel="tag"># ILM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/08/01/rocketmq-tuning/" rel="prev" title="RocketMQ 调优">
+                  <i class="fa fa-angle-left"></i> RocketMQ 调优
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/11/07/kafka-tuning/" rel="next" title="Kafka 调优">
+                  Kafka 调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

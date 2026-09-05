@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="MySQL 8.4 LTS 从工作负载、慢 SQL、索引和锁等待入手，完成 InnoDB 内存、redo、持久化、连接与复制调优。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL 调优">
+<meta property="og:url" content="https://kiritoowo.github.io/2024/04/25/mysql-tuning/index.html">
+<meta property="og:site_name" content="kirito">
+<meta property="og:description" content="MySQL 8.4 LTS 从工作负载、慢 SQL、索引和锁等待入手，完成 InnoDB 内存、redo、持久化、连接与复制调优。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-04-25T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-12-25T02:00:00.000Z">
+<meta property="article:author" content="ljm">
+<meta property="article:tag" content="InnoDB">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="SQL">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://kiritoowo.github.io/2024/04/25/mysql-tuning/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2024/04/25/mysql-tuning/","path":"2024/04/25/mysql-tuning/","title":"MySQL 调优"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>MySQL 调优 | kirito</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E6%98%8E%E7%A1%AE%E7%89%88%E6%9C%AC%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD"><span class="nav-text">1. 明确版本与工作负载</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%BB%BA%E7%AB%8B%E5%8F%AF%E5%A4%8D%E7%8E%B0%E5%9F%BA%E7%BA%BF"><span class="nav-text">2. 建立可复现基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-SQL%E3%80%81%E7%B4%A2%E5%BC%95%E5%92%8C%E8%AE%BF%E9%97%AE%E8%A1%8C%E6%95%B0"><span class="nav-text">3. SQL、索引和访问行数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E7%94%A8-EXPLAIN-ANALYZE-%E7%9C%8B%E7%9C%9F%E5%AE%9E%E6%89%A7%E8%A1%8C"><span class="nav-text">3.1 用 EXPLAIN ANALYZE 看真实执行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E7%B4%A2%E5%BC%95%E8%AE%BE%E8%AE%A1%E9%A1%BA%E5%BA%8F"><span class="nav-text">3.2 索引设计顺序</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E4%BA%8B%E5%8A%A1%E5%92%8C%E9%94%81"><span class="nav-text">4. 事务和锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Buffer-Pool-%E5%86%85%E5%AD%98%E9%A2%84%E7%AE%97"><span class="nav-text">5. Buffer Pool 内存预算</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Redo%E3%80%81%E5%88%B7%E7%9B%98%E5%92%8C%E6%8C%81%E4%B9%85%E5%8C%96"><span class="nav-text">6. Redo、刷盘和持久化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E8%BF%9E%E6%8E%A5%E6%95%B0%E3%80%81%E7%BA%BF%E7%A8%8B%E5%92%8C%E7%BC%93%E5%AD%98"><span class="nav-text">7. 连接数、线程和缓存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E4%B8%B4%E6%97%B6%E8%A1%A8%E5%92%8C%E6%8E%92%E5%BA%8F"><span class="nav-text">8. 临时表和排序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%A4%8D%E5%88%B6%E4%B8%8E%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="nav-text">9. 复制与高可用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-32-GiB-OLTP-%E8%B5%B7%E5%A7%8B%E9%85%8D%E7%BD%AE"><span class="nav-text">10. 32 GiB OLTP 起始配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E9%AA%8C%E6%94%B6%E5%92%8C%E5%9B%9E%E6%BB%9A"><span class="nav-text">11. 验收和回滚</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">12. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#13-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">13. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2024/04/25/mysql-tuning/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="MySQL 调优 | kirito">
+      <meta itemprop="description" content="MySQL 8.4 LTS 从工作负载、慢 SQL、索引和锁等待入手，完成 InnoDB 内存、redo、持久化、连接与复制调优。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL 调优
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-04-25 10:00:00" itemprop="dateCreated datePublished" datetime="2024-04-25T10:00:00+08:00">2024-04-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-25 10:00:00" itemprop="dateModified" datetime="2025-12-25T10:00:00+08:00">2025-12-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">MySQL 8.4 LTS 从工作负载、慢 SQL、索引和锁等待入手，完成 InnoDB 内存、redo、持久化、连接与复制调优。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>MySQL 调优应从 SQL 和等待事件开始：先缩短扫描、锁持有和事务时间，再调整 Buffer Pool、redo、刷盘和连接数。参数只能放大正确设计的收益，也会放大错误设计的代价。</p>
+<span id="more"></span>
+
+<h2 id="1-明确版本与工作负载"><a href="#1-明确版本与工作负载" class="headerlink" title="1. 明确版本与工作负载"></a>1. 明确版本与工作负载</h2><p>本文以 MySQL 8.4 LTS、InnoDB、32 GiB 专用数据库节点为示例。共享主机、容器和云 RDS 应扣除操作系统、Agent、连接线程和备份任务内存。</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>主要矛盾</th>
+<th>优先指标</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OLTP</td>
+<td>随机访问、锁和提交延迟</td>
+<td>p95&#x2F;p99、锁等待、fsync</td>
+</tr>
+<tr>
+<td>读多写少</td>
+<td>Buffer Pool 与索引覆盖</td>
+<td>逻辑读&#x2F;物理读、扫描行数</td>
+</tr>
+<tr>
+<td>批量导入</td>
+<td>redo、binlog、磁盘吞吐</td>
+<td>MB&#x2F;s、checkpoint age、复制延迟</td>
+</tr>
+<tr>
+<td>分析查询</td>
+<td>大扫描和临时表</td>
+<td>examined rows、临时磁盘表</td>
+</tr>
+</tbody></table>
+<p>不要为一次离线导入永久降低持久化级别。批任务应错峰、限速，或者放在独立副本。</p>
+<h2 id="2-建立可复现基线"><a href="#2-建立可复现基线" class="headerlink" title="2. 建立可复现基线"></a>2. 建立可复现基线</h2><p>启用 Performance Schema 和 <code>sys</code> schema，慢日志阈值先设为 500 ms，再根据请求 SLO 降低。不要长期打开 <code>general_log</code>。</p>
+<figure class="highlight ini"><figcaption><span>/etc/mysql/mysql.conf.d/20-observability.cnf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">slow_query_log</span> = <span class="literal">ON</span></span><br><span class="line"><span class="attr">long_query_time</span> = <span class="number">0.5</span></span><br><span class="line"><span class="attr">log_queries_not_using_indexes</span> = <span class="literal">OFF</span></span><br><span class="line"><span class="attr">performance_schema</span> = <span class="literal">ON</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按总耗时定位最值得优化的 SQL 模板</span></span><br><span class="line"><span class="keyword">SELECT</span> digest_text,</span><br><span class="line">       count_star,</span><br><span class="line">       ROUND(sum_timer_wait <span class="operator">/</span> <span class="number">1000000000000</span>, <span class="number">2</span>) <span class="keyword">AS</span> total_seconds,</span><br><span class="line">       ROUND(avg_timer_wait <span class="operator">/</span> <span class="number">1000000</span>, <span class="number">2</span>) <span class="keyword">AS</span> avg_microseconds,</span><br><span class="line">       sum_rows_examined,</span><br><span class="line">       sum_rows_sent</span><br><span class="line"><span class="keyword">FROM</span> performance_schema.events_statements_summary_by_digest</span><br><span class="line"><span class="keyword">WHERE</span> digest_text <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> sum_timer_wait <span class="keyword">DESC</span></span><br><span class="line">LIMIT <span class="number">20</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 当前锁等待和长事务</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> sys.innodb_lock_waits;</span><br><span class="line"><span class="keyword">SELECT</span> trx_id, trx_started, trx_state, trx_rows_locked, trx_query</span><br><span class="line"><span class="keyword">FROM</span> information_schema.innodb_trx</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> trx_started;</span><br></pre></td></tr></table></figure>
+
+<p>系统层同步采集 CPU、磁盘 <code>await</code>、IOPS、吞吐和 fsync 尾延迟。Buffer Pool 命中率很高也可能被锁或 redo 限制。</p>
+<h2 id="3-SQL、索引和访问行数"><a href="#3-SQL、索引和访问行数" class="headerlink" title="3. SQL、索引和访问行数"></a>3. SQL、索引和访问行数</h2><h3 id="3-1-用-EXPLAIN-ANALYZE-看真实执行"><a href="#3-1-用-EXPLAIN-ANALYZE-看真实执行" class="headerlink" title="3.1 用 EXPLAIN ANALYZE 看真实执行"></a>3.1 用 EXPLAIN ANALYZE 看真实执行</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN ANALYZE</span><br><span class="line"><span class="keyword">SELECT</span> id, status, created_at</span><br><span class="line"><span class="keyword">FROM</span> orders</span><br><span class="line"><span class="keyword">WHERE</span> tenant_id <span class="operator">=</span> <span class="number">1001</span></span><br><span class="line">  <span class="keyword">AND</span> status <span class="operator">=</span> <span class="string">&#x27;PAID&#x27;</span></span><br><span class="line">  <span class="keyword">AND</span> created_at <span class="operator">&gt;=</span> <span class="string">&#x27;2025-12-01&#x27;</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span></span><br><span class="line">LIMIT <span class="number">50</span>;</span><br></pre></td></tr></table></figure>
+
+<p>关注每个算子的实际行数、循环次数和耗时。估算与实际相差几个数量级时，检查统计信息、数据倾斜和相关列。</p>
+<h3 id="3-2-索引设计顺序"><a href="#3-2-索引设计顺序" class="headerlink" title="3.2 索引设计顺序"></a>3.2 索引设计顺序</h3><p>通常按“高频等值条件 -&gt; 范围条件 -&gt; 排序&#x2F;分组 -&gt; 必要覆盖列”设计联合索引，但最终以真实计划为准。避免：</p>
+<ul>
+<li>字符列和数字参数比较导致隐式转换；</li>
+<li>对索引列套函数且没有函数索引；</li>
+<li><code>SELECT *</code> 让覆盖索引失效；</li>
+<li>深分页 <code>LIMIT 100000, 20</code>；</li>
+<li>为每个查询创建宽索引，显著增加写放大。</li>
+</ul>
+<p>深分页改为基于稳定排序键的游标：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> id, created_at, total_amount</span><br><span class="line"><span class="keyword">FROM</span> orders</span><br><span class="line"><span class="keyword">WHERE</span> tenant_id <span class="operator">=</span> ?</span><br><span class="line">  <span class="keyword">AND</span> (created_at, id) <span class="operator">&lt;</span> (?, ?)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span>, id <span class="keyword">DESC</span></span><br><span class="line">LIMIT <span class="number">50</span>;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-事务和锁"><a href="#4-事务和锁" class="headerlink" title="4. 事务和锁"></a>4. 事务和锁</h2><p>事务中不要执行 RPC、文件上传或等待用户输入。批量修改使用主键范围分段，每批提交并记录进度。大事务会同时放大 undo、锁持有、历史版本和复制延迟。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查看 InnoDB 现场和元数据锁</span></span><br><span class="line"><span class="keyword">SHOW</span> ENGINE INNODB STATUS\G</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> performance_schema.metadata_locks</span><br><span class="line"><span class="keyword">WHERE</span> LOCK_STATUS <span class="operator">=</span> <span class="string">&#x27;PENDING&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>隔离级别不是越高越好。MySQL 默认 <code>REPEATABLE READ</code> 适合多数事务；明确不需要一致性快照且希望减少部分 gap lock 影响时，可评估 <code>READ COMMITTED</code>，但必须测试业务语义和复制格式。</p>
+<h2 id="5-Buffer-Pool-内存预算"><a href="#5-Buffer-Pool-内存预算" class="headerlink" title="5. Buffer Pool 内存预算"></a>5. Buffer Pool 内存预算</h2><p>专用 32 GiB 节点可以从 20～24 GiB Buffer Pool 开始，而不是机械地使用 80%。剩余内存需要覆盖连接缓冲、Performance Schema、排序&#x2F;临时表、redo、操作系统和备份。</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">innodb_buffer_pool_size</span> = <span class="number">22</span>G</span><br></pre></td></tr></table></figure>
+
+<p>MySQL 8 支持在线调整 <code>innodb_buffer_pool_size</code>，但扩缩容仍会造成 I&#x2F;O 和延迟波动，应小步执行并观测：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> innodb_buffer_pool_size <span class="operator">=</span> <span class="number">23622320128</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> variable_name, variable_value</span><br><span class="line"><span class="keyword">FROM</span> performance_schema.global_status</span><br><span class="line"><span class="keyword">WHERE</span> variable_name <span class="keyword">IN</span> (</span><br><span class="line">  <span class="string">&#x27;Innodb_buffer_pool_reads&#x27;</span>,</span><br><span class="line">  <span class="string">&#x27;Innodb_buffer_pool_read_requests&#x27;</span>,</span><br><span class="line">  <span class="string">&#x27;Innodb_buffer_pool_wait_free&#x27;</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<h2 id="6-Redo、刷盘和持久化"><a href="#6-Redo、刷盘和持久化" class="headerlink" title="6. Redo、刷盘和持久化"></a>6. Redo、刷盘和持久化</h2><p>MySQL 8.0.30 起优先使用 <code>innodb_redo_log_capacity</code>，旧教程中的 <code>innodb_log_file_size × innodb_log_files_in_group</code> 已不是新部署的推荐写法。</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">innodb_redo_log_capacity</span> = <span class="number">8</span>G</span><br><span class="line"><span class="attr">innodb_flush_method</span> = O_DIRECT</span><br><span class="line"><span class="attr">innodb_flush_log_at_trx_commit</span> = <span class="number">1</span></span><br><span class="line"><span class="attr">sync_binlog</span> = <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>redo 容量过小会频繁 checkpoint 和刷脏，过大则增加崩溃恢复时间。根据高峰写入速率，让 redo 覆盖约 30～60 分钟写入作为实验起点，再用 checkpoint、脏页和恢复演练验证。</p>
+<table>
+<thead>
+<tr>
+<th>组合</th>
+<th>数据风险</th>
+<th>场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>flush=1</code>、<code>sync_binlog=1</code></td>
+<td>最强持久化语义</td>
+<td>订单、资金、核心状态</td>
+</tr>
+<tr>
+<td><code>flush=2</code>、<code>sync_binlog=N</code></td>
+<td>OS&#x2F;主机故障可能丢最近事务</td>
+<td>可重放事件、临时数据</td>
+</tr>
+</tbody></table>
+<p>降低持久化级别必须由业务 RPO 决定，不能只因为 TPS 更高。</p>
+<h2 id="7-连接数、线程和缓存"><a href="#7-连接数、线程和缓存" class="headerlink" title="7. 连接数、线程和缓存"></a>7. 连接数、线程和缓存</h2><p><code>max_connections=2000</code> 不代表数据库可以有效执行 2000 个并发查询。并发预算来自 CPU、查询耗时和磁盘能力：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">所需活跃连接约等于 峰值 TPS × 单事务平均秒数</span><br></pre></td></tr></table></figure>
+
+<p>应用连接池以较小值开始，例如每实例 16～32，并保证所有实例、后台任务和管理连接之和不超过数据库预算。连接获取超时应小于接口剩余时间，避免请求在线程池和连接池排两次长队。</p>
+<p>谨慎设置每连接缓冲：<code>sort_buffer_size</code>、<code>join_buffer_size</code>、<code>read_buffer_size</code> 可能按活动连接分配，不能按“连接数 × 全部上限”把内存花完。</p>
+<h2 id="8-临时表和排序"><a href="#8-临时表和排序" class="headerlink" title="8. 临时表和排序"></a>8. 临时表和排序</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> variable_name, variable_value</span><br><span class="line"><span class="keyword">FROM</span> performance_schema.global_status</span><br><span class="line"><span class="keyword">WHERE</span> variable_name <span class="keyword">IN</span> (<span class="string">&#x27;Created_tmp_tables&#x27;</span>, <span class="string">&#x27;Created_tmp_disk_tables&#x27;</span>, <span class="string">&#x27;Sort_merge_passes&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>磁盘临时表多时先优化 SQL、字段类型和索引，再调整 <code>tmp_table_size</code>。该变量不是全局只分配一次，大并发下调得过大可能导致 OOM。</p>
+<h2 id="9-复制与高可用"><a href="#9-复制与高可用" class="headerlink" title="9. 复制与高可用"></a>9. 复制与高可用</h2><p>复制延迟应同时看 relay log、SQL apply、长事务和副本磁盘。并行复制参数要配合真实事务依赖验证。只读请求若要求“写后立刻可见”，不能无条件路由到异步副本。</p>
+<p>上线前至少演练：主库进程退出、节点故障、网络隔离、磁盘接近满、长事务和 DDL。验收不仅是“能切换”，还包括 RTO、丢失事务范围、客户端重连和重复执行处理。</p>
+<h2 id="10-32-GiB-OLTP-起始配置"><a href="#10-32-GiB-OLTP-起始配置" class="headerlink" title="10. 32 GiB OLTP 起始配置"></a>10. 32 GiB OLTP 起始配置</h2><figure class="highlight ini"><figcaption><span>/etc/mysql/mysql.conf.d/99-tuning.cnf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">skip_name_resolve</span> = <span class="literal">ON</span></span><br><span class="line"><span class="attr">max_connections</span> = <span class="number">500</span></span><br><span class="line"><span class="attr">table_open_cache</span> = <span class="number">8192</span></span><br><span class="line"></span><br><span class="line"><span class="attr">innodb_buffer_pool_size</span> = <span class="number">22</span>G</span><br><span class="line"><span class="attr">innodb_redo_log_capacity</span> = <span class="number">8</span>G</span><br><span class="line"><span class="attr">innodb_flush_method</span> = O_DIRECT</span><br><span class="line"><span class="attr">innodb_flush_log_at_trx_commit</span> = <span class="number">1</span></span><br><span class="line"><span class="attr">innodb_flush_neighbors</span> = <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="attr">sync_binlog</span> = <span class="number">1</span></span><br><span class="line"><span class="attr">binlog_format</span> = ROW</span><br><span class="line"><span class="attr">binlog_expire_logs_seconds</span> = <span class="number">604800</span></span><br><span class="line"></span><br><span class="line"><span class="attr">slow_query_log</span> = <span class="literal">ON</span></span><br><span class="line"><span class="attr">long_query_time</span> = <span class="number">0.5</span></span><br><span class="line"><span class="attr">performance_schema</span> = <span class="literal">ON</span></span><br></pre></td></tr></table></figure>
+
+<p>NVMe 或云盘通常设置 <code>innodb_flush_neighbors=0</code>；机械盘环境需要重新评估。<code>skip_name_resolve</code> 启用前确认授权表使用 IP 或网段而非主机名。</p>
+<h2 id="11-验收和回滚"><a href="#11-验收和回滚" class="headerlink" title="11. 验收和回滚"></a>11. 验收和回滚</h2><p>至少比较：业务 TPS、p95&#x2F;p99、扫描&#x2F;返回行数、Buffer Pool 物理读、锁等待、redo 写入与 checkpoint、fsync p99、连接等待和复制延迟。配置文件先通过以下命令校验：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqld --validate-config</span><br></pre></td></tr></table></figure>
+
+<p>保留变更前配置和参数快照。p99 劣化、磁盘队列持续饱和、复制延迟扩大或 OOM 水位不足时，按参数组回滚并重跑同一压测。</p>
+<h2 id="12-参考资料"><a href="#12-参考资料" class="headerlink" title="12. 参考资料"></a>12. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.4/en/optimization.html">MySQL 8.4 优化手册</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.4/en/innodb-buffer-pool-resize.html">InnoDB Buffer Pool 配置</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.4/en/innodb-redo-log.html">InnoDB Redo Log 配置</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.4/en/performance-schema-statement-summary-tables.html">Performance Schema 语句摘要表</a></li>
+<li><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN ANALYZE</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/performance-optimization/">阿里云 RDS MySQL 性能优化</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/das/">阿里云数据库自治服务 DAS</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.percona.com/blog/">Percona MySQL Performance Blog</a></li>
+</ul>
+<h2 id="13-Ansible-配置"><a href="#13-Ansible-配置" class="headerlink" title="13. Ansible 配置"></a>13. Ansible 配置</h2><figure class="highlight yaml"><figcaption><span>mysql-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">部署</span> <span class="string">MySQL</span> <span class="number">8.4</span> <span class="string">调优基线</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">mysql_servers</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">mysql_buffer_pool_size:</span> <span class="string">22G</span></span><br><span class="line">    <span class="attr">mysql_redo_capacity:</span> <span class="string">8G</span></span><br><span class="line">    <span class="attr">mysql_max_connections:</span> <span class="number">500</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">MySQL</span> <span class="string">调优配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/mysql/mysql.conf.d/99-tuning.cnf</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">root</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">root</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          [mysqld]</span></span><br><span class="line"><span class="string">          skip_name_resolve = ON</span></span><br><span class="line"><span class="string">          max_connections = &#123;&#123; mysql_max_connections &#125;&#125;</span></span><br><span class="line"><span class="string">          table_open_cache = 8192</span></span><br><span class="line"><span class="string">          innodb_buffer_pool_size = &#123;&#123; mysql_buffer_pool_size &#125;&#125;</span></span><br><span class="line"><span class="string">          innodb_redo_log_capacity = &#123;&#123; mysql_redo_capacity &#125;&#125;</span></span><br><span class="line"><span class="string">          innodb_flush_method = O_DIRECT</span></span><br><span class="line"><span class="string">          innodb_flush_log_at_trx_commit = 1</span></span><br><span class="line"><span class="string">          innodb_flush_neighbors = 0</span></span><br><span class="line"><span class="string">          sync_binlog = 1</span></span><br><span class="line"><span class="string">          binlog_format = ROW</span></span><br><span class="line"><span class="string">          binlog_expire_logs_seconds = 604800</span></span><br><span class="line"><span class="string">          slow_query_log = ON</span></span><br><span class="line"><span class="string">          long_query_time = 0.5</span></span><br><span class="line"><span class="string">          performance_schema = ON</span></span><br><span class="line"><span class="string"></span>        <span class="attr">validate:</span> <span class="string">/usr/sbin/mysqld</span> <span class="string">--defaults-file=%s</span> <span class="string">--validate-config</span></span><br><span class="line">      <span class="attr">notify:</span> <span class="string">重启</span> <span class="string">MySQL</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">确保</span> <span class="string">MySQL</span> <span class="string">已启动</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">mysql</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">started</span></span><br><span class="line">        <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重启</span> <span class="string">MySQL</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">mysql</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">restarted</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/InnoDB/" rel="tag"># InnoDB</a>
+              <a href="/tags/SQL/" rel="tag"># SQL</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/03/07/jvm-tuning/" rel="prev" title="JVM 调优">
+                  <i class="fa fa-angle-left"></i> JVM 调优
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/06/13/redis-tuning/" rel="next" title="Redis 调优">
+                  Redis 调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

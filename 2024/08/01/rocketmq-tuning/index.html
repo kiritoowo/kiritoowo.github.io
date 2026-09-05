@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="RocketMQ 5 从 Topic、队列和存储容量出发，完成生产、刷盘、副本、消费堆积、重试与故障演练调优。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RocketMQ 调优">
+<meta property="og:url" content="https://kiritoowo.github.io/2024/08/01/rocketmq-tuning/index.html">
+<meta property="og:site_name" content="kirito">
+<meta property="og:description" content="RocketMQ 5 从 Topic、队列和存储容量出发，完成生产、刷盘、副本、消费堆积、重试与故障演练调优。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-08-01T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-12-30T02:00:00.000Z">
+<meta property="article:author" content="ljm">
+<meta property="article:tag" content="RocketMQ">
+<meta property="article:tag" content="刷盘">
+<meta property="article:tag" content="消息堆积">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://kiritoowo.github.io/2024/08/01/rocketmq-tuning/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2024/08/01/rocketmq-tuning/","path":"2024/08/01/rocketmq-tuning/","title":"RocketMQ 调优"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>RocketMQ 调优 | kirito</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E4%BB%8E%E6%B6%88%E6%81%AF%E9%93%BE%E8%B7%AF%E5%AE%9A%E4%B9%89-SLO"><span class="nav-text">1. 从消息链路定义 SLO</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%AE%B9%E9%87%8F%E8%A7%84%E5%88%92"><span class="nav-text">2. 容量规划</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E5%AD%98%E5%82%A8%E5%AE%B9%E9%87%8F"><span class="nav-text">2.1 存储容量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E9%98%9F%E5%88%97%E6%95%B0"><span class="nav-text">2.2 队列数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-Producer-%E8%B0%83%E4%BC%98"><span class="nav-text">3. Producer 调优</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E5%8F%AF%E9%9D%A0%E6%80%A7%E7%BB%84%E5%90%88"><span class="nav-text">3.1 可靠性组合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E6%89%B9%E9%87%8F%E4%B8%8E%E5%8E%8B%E7%BC%A9"><span class="nav-text">3.2 批量与压缩</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-Broker-%E5%AD%98%E5%82%A8%E8%B7%AF%E5%BE%84"><span class="nav-text">4. Broker 存储路径</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%88%B7%E7%9B%98%E5%92%8C%E5%89%AF%E6%9C%AC%E4%B8%8D%E6%98%AF%E5%8D%95%E4%B8%AA%E5%BC%80%E5%85%B3"><span class="nav-text">5. 刷盘和副本不是单个开关</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Broker-%E5%8F%82%E6%95%B0%E8%B5%B7%E7%82%B9"><span class="nav-text">6. Broker 参数起点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Consumer-%E5%B9%B6%E5%8F%91%E4%B8%8E%E5%A0%86%E7%A7%AF"><span class="nav-text">7. Consumer 并发与堆积</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E9%87%8D%E8%AF%95%E3%80%81%E6%AD%BB%E4%BF%A1%E5%92%8C%E5%B9%82%E7%AD%89"><span class="nav-text">8. 重试、死信和幂等</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E8%BF%90%E7%BB%B4%E8%AF%8A%E6%96%AD"><span class="nav-text">9. 运维诊断</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8E%8B%E6%B5%8B%E4%B8%8E%E6%95%85%E9%9A%9C%E6%BC%94%E7%BB%83"><span class="nav-text">10. 压测与故障演练</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">11. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">12. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2024/08/01/rocketmq-tuning/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="RocketMQ 调优 | kirito">
+      <meta itemprop="description" content="RocketMQ 5 从 Topic、队列和存储容量出发，完成生产、刷盘、副本、消费堆积、重试与故障演练调优。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RocketMQ 调优
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-08-01 10:00:00" itemprop="dateCreated datePublished" datetime="2024-08-01T10:00:00+08:00">2024-08-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-30 10:00:00" itemprop="dateModified" datetime="2025-12-30T10:00:00+08:00">2025-12-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" itemprop="url" rel="index"><span itemprop="name">消息队列</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">RocketMQ 5 从 Topic、队列和存储容量出发，完成生产、刷盘、副本、消费堆积、重试与故障演练调优。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>RocketMQ 调优的核心不是把 Broker 线程池全部调大，而是让生产速率、队列并行度、存储带宽和消费能力形成可计算的闭环，并在节点故障时仍满足 RPO&#x2F;RTO。</p>
+<span id="more"></span>
+
+<h2 id="1-从消息链路定义-SLO"><a href="#1-从消息链路定义-SLO" class="headerlink" title="1. 从消息链路定义 SLO"></a>1. 从消息链路定义 SLO</h2><p>一条消息经过 Producer -&gt; NameServer&#x2F;Proxy -&gt; Broker CommitLog -&gt; 副本&#x2F;刷盘 -&gt; Consumer -&gt; 业务存储。每一段都要有指标：</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>核心指标</th>
+<th>典型风险</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>生产</td>
+<td>TPS、发送 p99、失败&#x2F;重试</td>
+<td>重试放大、批次过大</td>
+</tr>
+<tr>
+<td>Broker</td>
+<td>Put&#x2F;Get p99、PageCache、磁盘水位</td>
+<td>刷盘慢、PageCache 忙</td>
+</tr>
+<tr>
+<td>复制</td>
+<td>副本差距、确认时间</td>
+<td>主从网络或磁盘不足</td>
+</tr>
+<tr>
+<td>消费</td>
+<td>消费 TPS、最大堆积、最老消息年龄</td>
+<td>下游慢、反复重试</td>
+</tr>
+</tbody></table>
+<p>消息系统必须先确定：是否允许丢消息、是否允许重复、是否要求顺序、最大消息大小、峰值 TPS、保留时间和故障恢复时间。</p>
+<h2 id="2-容量规划"><a href="#2-容量规划" class="headerlink" title="2. 容量规划"></a>2. 容量规划</h2><h3 id="2-1-存储容量"><a href="#2-1-存储容量" class="headerlink" title="2.1 存储容量"></a>2.1 存储容量</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">每日 CommitLog ≈ 峰值每秒消息数 × 平均消息字节 × 86400 × 峰值折算系数</span><br><span class="line">实际磁盘 ≈ 每日数据 × 保留天数 × 副本数 × 1.2 安全余量</span><br></pre></td></tr></table></figure>
+
+<p>还要计入属性、索引、ConsumeQueue 和重试&#x2F;死信消息。磁盘使用率达到拒写阈值前就应告警和扩容，不能把清理当作容量策略。</p>
+<h3 id="2-2-队列数"><a href="#2-2-队列数" class="headerlink" title="2.2 队列数"></a>2.2 队列数</h3><p>队列数决定单 Consumer Group 的最大并行度，但不是越多越好。过多队列会增加元数据、文件、锁竞争、重平衡和顺序管理成本。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">最低消费并行度 ≈ 峰值生产 TPS ÷ 单消费线程稳定 TPS</span><br><span class="line">队列数 &gt;= 目标并行度，并预留约 30% 峰值余量</span><br></pre></td></tr></table></figure>
+
+<p>先用 8、16、32 等可管理规模压测。全局顺序只能使用单队列，吞吐上限必须由业务接受；分区顺序应使用稳定的 sharding key。</p>
+<h2 id="3-Producer-调优"><a href="#3-Producer-调优" class="headerlink" title="3. Producer 调优"></a>3. Producer 调优</h2><h3 id="3-1-可靠性组合"><a href="#3-1-可靠性组合" class="headerlink" title="3.1 可靠性组合"></a>3.1 可靠性组合</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">DefaultMQProducer</span> <span class="variable">producer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DefaultMQProducer</span>(<span class="string">&quot;order-producer&quot;</span>);</span><br><span class="line">producer.setNamesrvAddr(<span class="string">&quot;mq-namesrv.internal:9876&quot;</span>);</span><br><span class="line">producer.setSendMsgTimeout(<span class="number">3000</span>);</span><br><span class="line">producer.setRetryTimesWhenSendFailed(<span class="number">2</span>);</span><br><span class="line">producer.setRetryTimesWhenSendAsyncFailed(<span class="number">1</span>);</span><br><span class="line">producer.setRetryAnotherBrokerWhenNotStoreOK(<span class="literal">false</span>);</span><br><span class="line">producer.start();</span><br></pre></td></tr></table></figure>
+
+<p>超时和重试必须小于上游请求预算。只有业务幂等时才重试；为消息设置唯一业务 Key，消费者以业务主键或去重表实现幂等，不能依赖“MQ 只投递一次”。</p>
+<p>同步发送适合需要确认的核心事件，异步发送适合高吞吐且能处理回调失败的链路，单向发送只用于允许丢失的遥测数据。</p>
+<h3 id="3-2-批量与压缩"><a href="#3-2-批量与压缩" class="headerlink" title="3.2 批量与压缩"></a>3.2 批量与压缩</h3><p>批量发送能摊薄网络和系统调用，但会增加等待时间、重试粒度和内存。以 100～500 条或 256 KiB～1 MiB 为起点，取先达到的限制，并压测 p99。大消息应把内容存到对象存储，MQ 只传引用和校验值。</p>
+<h2 id="4-Broker-存储路径"><a href="#4-Broker-存储路径" class="headerlink" title="4. Broker 存储路径"></a>4. Broker 存储路径</h2><p>RocketMQ 通过 CommitLog 顺序写入，ConsumeQueue 和 IndexFile提供逻辑索引，读取大量依赖操作系统 PageCache。因此：</p>
+<ul>
+<li>Broker 主机不要运行会持续抢占 PageCache 的其他任务；</li>
+<li>CommitLog 优先独立 NVMe 或高性能云盘；</li>
+<li>日志、监控和系统盘不要与 CommitLog 争用同一低性能磁盘；</li>
+<li>JVM 堆不能占满物理内存，要给 PageCache 留出主要空间；</li>
+<li>禁止在 Broker 节点持续 swap。</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">iostat -xz 1</span><br><span class="line">pidstat -dru 1</span><br><span class="line">vmstat 1</span><br><span class="line">sar -n DEV,TCP,ETCP 1</span><br></pre></td></tr></table></figure>
+
+<p>磁盘判断看 <code>await</code>、队列、吞吐和 <code>%util</code>，云盘还要对照实例 IOPS&#x2F;吞吐额度以及突发积分。</p>
+<h2 id="5-刷盘和副本不是单个开关"><a href="#5-刷盘和副本不是单个开关" class="headerlink" title="5. 刷盘和副本不是单个开关"></a>5. 刷盘和副本不是单个开关</h2><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>确认语义</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ASYNC_FLUSH</code></td>
+<td>写入 PageCache 后返回</td>
+<td>可依赖副本、允许极小故障窗口</td>
+</tr>
+<tr>
+<td><code>SYNC_FLUSH</code></td>
+<td>等待本机刷盘</td>
+<td>单机持久化要求高，吞吐更低</td>
+</tr>
+<tr>
+<td>异步复制</td>
+<td>主节点确认更快</td>
+<td>可接受主故障时的复制窗口</td>
+</tr>
+<tr>
+<td>同步复制&#x2F;多数派</td>
+<td>等待副本确认</td>
+<td>RPO 更严格，延迟更高</td>
+</tr>
+</tbody></table>
+<p>“同步刷盘 + 异步复制”并不等于跨节点不丢；“异步刷盘 + 同步复制”也需要明确副本同时掉电的风险。选择必须来自业务 RPO，并通过拔主节点、断网和磁盘故障演练验证。</p>
+<p>RocketMQ 5 可采用 Controller 模式完成主从切换。旧集群升级前应按官方版本矩阵规划，不能把 4.x DLedger 或手工主从配置原样搬入所有 5.x 集群。</p>
+<h2 id="6-Broker-参数起点"><a href="#6-Broker-参数起点" class="headerlink" title="6. Broker 参数起点"></a>6. Broker 参数起点</h2><p>以下示例适用于独立存储节点，线程数和文件保留时间必须按 CPU、磁盘和业务恢复需求调整：</p>
+<figure class="highlight properties"><figcaption><span>broker.conf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">brokerClusterName</span>=<span class="string">DefaultCluster</span></span><br><span class="line"><span class="attr">brokerName</span>=<span class="string">broker-a</span></span><br><span class="line"><span class="attr">brokerId</span>=<span class="string">0</span></span><br><span class="line"><span class="attr">listenPort</span>=<span class="string">10911</span></span><br><span class="line"></span><br><span class="line"><span class="attr">storePathRootDir</span>=<span class="string">/data/rocketmq/store</span></span><br><span class="line"><span class="attr">storePathCommitLog</span>=<span class="string">/data/rocketmq/store/commitlog</span></span><br><span class="line"><span class="attr">mappedFileSizeCommitLog</span>=<span class="string">1073741824</span></span><br><span class="line"></span><br><span class="line"><span class="attr">flushDiskType</span>=<span class="string">ASYNC_FLUSH</span></span><br><span class="line"><span class="attr">fileReservedTime</span>=<span class="string">72</span></span><br><span class="line"><span class="attr">deleteWhen</span>=<span class="string">04</span></span><br><span class="line"><span class="attr">diskMaxUsedSpaceRatio</span>=<span class="string">75</span></span><br><span class="line"></span><br><span class="line"><span class="attr">autoCreateTopicEnable</span>=<span class="string">false</span></span><br><span class="line"><span class="attr">autoCreateSubscriptionGroup</span>=<span class="string">false</span></span><br></pre></td></tr></table></figure>
+
+<p><code>mappedFileSizeCommitLog</code> 一般保持 1 GiB 默认思路，随意改小会增加文件管理开销，改大则增加预分配和恢复粒度。生产必须关闭自动创建 Topic&#x2F;Group，避免拼写错误悄悄产生新资源。</p>
+<p>线程池先保持版本默认。只有监控明确显示发送&#x2F;拉取线程池队列持续积压，同时磁盘和 CPU 仍有余量时，再小步调整 <code>sendMessageThreadPoolNums</code> 等参数。</p>
+<h2 id="7-Consumer-并发与堆积"><a href="#7-Consumer-并发与堆积" class="headerlink" title="7. Consumer 并发与堆积"></a>7. Consumer 并发与堆积</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">DefaultMQPushConsumer</span> <span class="variable">consumer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DefaultMQPushConsumer</span>(<span class="string">&quot;order-consumer&quot;</span>);</span><br><span class="line">consumer.setConsumeThreadMin(<span class="number">16</span>);</span><br><span class="line">consumer.setConsumeThreadMax(<span class="number">32</span>);</span><br><span class="line">consumer.setPullBatchSize(<span class="number">32</span>);</span><br><span class="line">consumer.setConsumeMessageBatchMaxSize(<span class="number">1</span>);</span><br><span class="line">consumer.setConsumeTimeout(<span class="number">5</span>);</span><br></pre></td></tr></table></figure>
+
+<p>并发上限受 Topic 队列数、客户端实例数和下游能力共同限制。增加线程前确认数据库连接池、HTTP 下游和 CPU 可承受，否则只是把堆积转移到下游。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">堆积清空时间 ≈ 当前堆积量 ÷ (稳定消费 TPS - 同期生产 TPS)</span><br></pre></td></tr></table></figure>
+
+<p>如果稳定消费 TPS 小于生产 TPS，无论等待多久都不会恢复。治理顺序：定位慢处理 -&gt; 下游扩容&#x2F;降级 -&gt; 增加 Consumer 实例 -&gt; 必要时增加队列并调整生产路由。</p>
+<p>顺序消息同队列必须串行，失败消息会阻塞后续消息。处理函数要短小，把不可控的远程等待移出关键链路或设置严格超时。</p>
+<h2 id="8-重试、死信和幂等"><a href="#8-重试、死信和幂等" class="headerlink" title="8. 重试、死信和幂等"></a>8. 重试、死信和幂等</h2><p>消费失败返回重试前记录消息 Key、失败类型、已重试次数和下次行动。不可恢复错误应尽快进入人工处理，不要重复冲击永久失败的下游。</p>
+<p>幂等常用做法：</p>
+<ol>
+<li>数据库业务唯一键，重复 INSERT 转换为已处理；</li>
+<li>同一事务内写业务状态和消费记录；</li>
+<li>状态机只允许合法跃迁，例如 <code>PAID -&gt; SHIPPED</code>；</li>
+<li>Redis 去重只适合 TTL 内允许概率和数据丢失风险的场景。</li>
+</ol>
+<p>死信队列必须有告警、查询、修复、重放和审计流程。重放前先修复幂等问题，且限速执行。</p>
+<h2 id="9-运维诊断"><a href="#9-运维诊断" class="headerlink" title="9. 运维诊断"></a>9. 运维诊断</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 集群和 Broker 状态</span></span><br><span class="line">mqadmin clusterList -n namesrv-1:9876</span><br><span class="line">mqadmin brokerStatus -n namesrv-1:9876 -b broker-a:10911</span><br><span class="line"></span><br><span class="line"><span class="comment"># Topic 路由、状态和消费进度</span></span><br><span class="line">mqadmin topicRoute -n namesrv-1:9876 -t OrderCreated</span><br><span class="line">mqadmin topicStatus -n namesrv-1:9876 -t OrderCreated</span><br><span class="line">mqadmin consumerProgress -n namesrv-1:9876 -g order-consumer</span><br></pre></td></tr></table></figure>
+
+<p>统一监控生产&#x2F;消费 TPS、Put&#x2F;Get p99、PageCache busy、磁盘水位、刷盘耗时、主从差距、消费 lag、最老消息年龄、重试和死信数量。</p>
+<h2 id="10-压测与故障演练"><a href="#10-压测与故障演练" class="headerlink" title="10. 压测与故障演练"></a>10. 压测与故障演练</h2><p>压测必须覆盖真实消息大小、属性数量、Tag 过滤、顺序消息比例、重试和批次。稳定运行后依次演练：</p>
+<ul>
+<li>Broker 进程退出和主节点宕机；</li>
+<li>NameServer 部分不可达；</li>
+<li>磁盘延迟升高、空间达到告警阈值；</li>
+<li>Consumer 下游变慢和完全不可用；</li>
+<li>生产突增 2 倍后的堆积恢复。</li>
+</ul>
+<p>验收包含 RPO&#x2F;RTO、重复消息比例、堆积清空时间、发送和消费 p99，而不是只看峰值 TPS。</p>
+<h2 id="11-参考资料"><a href="#11-参考资料" class="headerlink" title="11. 参考资料"></a>11. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/">Apache RocketMQ 5 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/featureBehavior/11messagestorepolicy">RocketMQ 消息存储与清理</a></li>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/featureBehavior/05sendretrypolicy">RocketMQ 发送重试</a></li>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/featureBehavior/10consumerretrypolicy">RocketMQ 消费重试</a></li>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/observability/01metrics">RocketMQ 指标</a></li>
+<li><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/bestPractice/07JVMOS">RocketMQ JVM 与操作系统最佳实践</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/apsaramq-for-rocketmq/">阿里云消息队列 RocketMQ 版</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/apsaramq-for-rocketmq/cloud-message-queue-rocketmq-5-x-series/support/consumer-lag">阿里云 RocketMQ 消费堆积排查</a></li>
+</ul>
+<h2 id="12-Ansible-配置"><a href="#12-Ansible-配置" class="headerlink" title="12. Ansible 配置"></a>12. Ansible 配置</h2><figure class="highlight yaml"><figcaption><span>rocketmq-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">部署</span> <span class="string">RocketMQ</span> <span class="string">Broker</span> <span class="string">配置</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">rocketmq_brokers</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">rocketmq_home:</span> <span class="string">/opt/rocketmq</span></span><br><span class="line">    <span class="attr">rocketmq_store:</span> <span class="string">/data/rocketmq/store</span></span><br><span class="line">    <span class="attr">rocketmq_nameservers:</span> <span class="string">&quot;10.0.1.11:9876;10.0.1.12:9876;10.0.1.13:9876&quot;</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">创建存储目录</span></span><br><span class="line">      <span class="attr">ansible.builtin.file:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; rocketmq_store &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">directory</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">rocketmq</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">rocketmq</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0750&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">Broker</span> <span class="string">配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; rocketmq_home &#125;&#125;</span>/conf/broker.conf&quot;</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">rocketmq</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">rocketmq</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0640&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          brokerClusterName=DefaultCluster</span></span><br><span class="line"><span class="string">          brokerName=&#123;&#123; inventory_hostname &#125;&#125;</span></span><br><span class="line"><span class="string">          brokerId=0</span></span><br><span class="line"><span class="string">          namesrvAddr=&#123;&#123; rocketmq_nameservers &#125;&#125;</span></span><br><span class="line"><span class="string">          listenPort=10911</span></span><br><span class="line"><span class="string">          storePathRootDir=&#123;&#123; rocketmq_store &#125;&#125;</span></span><br><span class="line"><span class="string">          storePathCommitLog=&#123;&#123; rocketmq_store &#125;&#125;/commitlog</span></span><br><span class="line"><span class="string">          mappedFileSizeCommitLog=1073741824</span></span><br><span class="line"><span class="string">          flushDiskType=ASYNC_FLUSH</span></span><br><span class="line"><span class="string">          fileReservedTime=72</span></span><br><span class="line"><span class="string">          deleteWhen=04</span></span><br><span class="line"><span class="string">          diskMaxUsedSpaceRatio=75</span></span><br><span class="line"><span class="string">          autoCreateTopicEnable=false</span></span><br><span class="line"><span class="string">          autoCreateSubscriptionGroup=false</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重启</span> <span class="string">RocketMQ</span> <span class="string">Broker</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置</span> <span class="string">Broker</span> <span class="string">文件句柄</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/systemd/system/rocketmq-broker.service.d/limits.conf</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          [Service]</span></span><br><span class="line"><span class="string">          LimitNOFILE=1000000</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重启</span> <span class="string">RocketMQ</span> <span class="string">Broker</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">      <span class="attr">ansible.builtin.systemd_service:</span></span><br><span class="line">        <span class="attr">daemon_reload:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重启</span> <span class="string">RocketMQ</span> <span class="string">Broker</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">rocketmq-broker</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">restarted</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/RocketMQ/" rel="tag"># RocketMQ</a>
+              <a href="/tags/%E6%B6%88%E6%81%AF%E5%A0%86%E7%A7%AF/" rel="tag"># 消息堆积</a>
+              <a href="/tags/%E5%88%B7%E7%9B%98/" rel="tag"># 刷盘</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/06/13/redis-tuning/" rel="prev" title="Redis 调优">
+                  <i class="fa fa-angle-left"></i> Redis 调优
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/09/19/elasticsearch-tuning/" rel="next" title="Elasticsearch 调优">
+                  Elasticsearch 调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

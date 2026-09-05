@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="Tomcat 10.1&#x2F;11 从连接、线程、超时、请求体、压缩、会话和 JVM 入手，完成容量测算、诊断与压测验收。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Tomcat 调优">
+<meta property="og:url" content="https://kiritoowo.github.io/2025/02/27/tomcat-tuning/index.html">
+<meta property="og:site_name" content="kirito">
+<meta property="og:description" content="Tomcat 10.1&#x2F;11 从连接、线程、超时、请求体、压缩、会话和 JVM 入手，完成容量测算、诊断与压测验收。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-02-27T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-12-31T05:00:00.000Z">
+<meta property="article:author" content="ljm">
+<meta property="article:tag" content="NIO">
+<meta property="article:tag" content="Tomcat">
+<meta property="article:tag" content="线程池">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://kiritoowo.github.io/2025/02/27/tomcat-tuning/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2025/02/27/tomcat-tuning/","path":"2025/02/27/tomcat-tuning/","title":"Tomcat 调优"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Tomcat 调优 | kirito</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E7%89%88%E6%9C%AC%E5%92%8C%E9%83%A8%E7%BD%B2%E8%BE%B9%E7%95%8C"><span class="nav-text">1. 版本和部署边界</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E4%BB%8E-Little%E2%80%99s-Law-%E4%BC%B0%E7%AE%97%E7%BA%BF%E7%A8%8B"><span class="nav-text">2. 从 Little’s Law 估算线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-Connector-%E5%92%8C%E5%85%B1%E4%BA%AB-Executor"><span class="nav-text">3. Connector 和共享 Executor</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E8%BF%9E%E6%8E%A5%E5%8F%82%E6%95%B0%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-text">3.1 连接参数的关系</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E8%B6%85%E6%97%B6%E5%BF%85%E9%A1%BB%E4%BB%8E%E5%85%A5%E5%8F%A3%E5%90%91%E4%B8%8B%E9%80%92%E5%87%8F"><span class="nav-text">4. 超时必须从入口向下递减</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%B9%B3%E5%8F%B0%E7%BA%BF%E7%A8%8B%E4%B8%8E%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B"><span class="nav-text">5. 平台线程与虚拟线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-JVM-%E5%92%8C%E5%86%85%E5%AD%98"><span class="nav-text">6. JVM 和内存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Session-%E5%92%8C%E5%BA%94%E7%94%A8%E9%83%A8%E7%BD%B2"><span class="nav-text">7. Session 和应用部署</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90%E3%80%81%E5%8E%8B%E7%BC%A9%E5%92%8C%E4%BB%A3%E7%90%86%E5%A4%B4"><span class="nav-text">8. 静态资源、压缩和代理头</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E8%AF%8A%E6%96%AD%E4%B8%8E%E6%8C%87%E6%A0%87"><span class="nav-text">9. 诊断与指标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8E%8B%E6%B5%8B%E5%92%8C%E8%BF%87%E8%BD%BD%E9%AA%8C%E6%94%B6"><span class="nav-text">10. 压测和过载验收</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">11. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">12. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2025/02/27/tomcat-tuning/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Tomcat 调优 | kirito">
+      <meta itemprop="description" content="Tomcat 10.1&#x2F;11 从连接、线程、超时、请求体、压缩、会话和 JVM 入手，完成容量测算、诊断与压测验收。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Tomcat 调优
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-02-27 10:00:00" itemprop="dateCreated datePublished" datetime="2025-02-27T10:00:00+08:00">2025-02-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-31 13:00:00" itemprop="dateModified" datetime="2025-12-31T13:00:00+08:00">2025-12-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/Web-%E5%AE%B9%E5%99%A8/" itemprop="url" rel="index"><span itemprop="name">Web 容器</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Tomcat 10.1/11 从连接、线程、超时、请求体、压缩、会话和 JVM 入手，完成容量测算、诊断与压测验收。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>Tomcat 调优应沿一次 HTTP 请求的生命周期展开：连接进入 accept 队列、分配工作线程、执行业务和下游调用、写回响应、复用或关闭连接。任何一层无界都会把过载变成长尾延迟。</p>
+<span id="more"></span>
+
+<h2 id="1-版本和部署边界"><a href="#1-版本和部署边界" class="headerlink" title="1. 版本和部署边界"></a>1. 版本和部署边界</h2><p>Tomcat 10.1 对应 Jakarta Servlet 6.0，Tomcat 11 对应 Servlet 6.1 且要求 Java 17 及以上。<code>javax.*</code> 应用升级到 <code>jakarta.*</code> 前要完成依赖迁移，性能参数不能解决兼容问题。</p>
+<p>典型生产链路是 CDN&#x2F;SLB -&gt; OpenResty&#x2F;Nginx -&gt; Tomcat。TLS、慢客户端和静态文件优先由入口层处理，Tomcat 聚焦动态请求。只有明确需要端到端 TLS 时才在 Tomcat 直接配置证书。</p>
+<h2 id="2-从-Little’s-Law-估算线程"><a href="#2-从-Little’s-Law-估算线程" class="headerlink" title="2. 从 Little’s Law 估算线程"></a>2. 从 Little’s Law 估算线程</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">服务内并发 ≈ 峰值请求/秒 × 平均处理秒数</span><br></pre></td></tr></table></figure>
+
+<p>例如 2,000 RPS、平均 50 ms，平均执行并发约为 100；p99 和突发会更高，可从 160～240 个线程压测。不要直接照抄 <code>maxThreads=1000</code>：线程越多，栈内存、上下文切换和对下游的并发冲击越大。</p>
+<p>容量表必须把这些值放在一起：</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th align="right">上限</th>
+<th>失败方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>入口代理活动连接</td>
+<td align="right">20,000</td>
+<td>限流或 503</td>
+</tr>
+<tr>
+<td>Tomcat <code>maxConnections</code></td>
+<td align="right">8,192</td>
+<td>连接进入 OS backlog</td>
+</tr>
+<tr>
+<td><code>acceptCount</code></td>
+<td align="right">500</td>
+<td>新连接被拒绝&#x2F;超时</td>
+</tr>
+<tr>
+<td>工作线程</td>
+<td align="right">200</td>
+<td>请求等待线程</td>
+</tr>
+<tr>
+<td>数据库连接池</td>
+<td align="right">32</td>
+<td>线程等待连接</td>
+</tr>
+</tbody></table>
+<p>数据库池通常小于 Tomcat 线程池。如果所有工作线程都同步等待数据库，扩大 Tomcat 线程只会让数据库排队更严重。</p>
+<h2 id="3-Connector-和共享-Executor"><a href="#3-Connector-和共享-Executor" class="headerlink" title="3. Connector 和共享 Executor"></a>3. Connector 和共享 Executor</h2><p>现代 Tomcat 默认 NIO Connector 已适合大多数场景。使用共享 Executor 能让多个 Connector 共用明确的线程预算：</p>
+<figure class="highlight xml"><figcaption><span>server.xml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Executor</span></span></span><br><span class="line"><span class="tag">  <span class="attr">name</span>=<span class="string">&quot;tomcatThreadPool&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">namePrefix</span>=<span class="string">&quot;http-exec-&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxThreads</span>=<span class="string">&quot;240&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">minSpareThreads</span>=<span class="string">&quot;20&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxQueueSize</span>=<span class="string">&quot;500&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">prestartminSpareThreads</span>=<span class="string">&quot;true&quot;</span> /&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">Connector</span></span></span><br><span class="line"><span class="tag">  <span class="attr">executor</span>=<span class="string">&quot;tomcatThreadPool&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">protocol</span>=<span class="string">&quot;org.apache.coyote.http11.Http11NioProtocol&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">address</span>=<span class="string">&quot;127.0.0.1&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">port</span>=<span class="string">&quot;8080&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxConnections</span>=<span class="string">&quot;8192&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">acceptCount</span>=<span class="string">&quot;500&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">connectionTimeout</span>=<span class="string">&quot;3000&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">keepAliveTimeout</span>=<span class="string">&quot;15000&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxKeepAliveRequests</span>=<span class="string">&quot;1000&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxHttpRequestHeaderSize</span>=<span class="string">&quot;16384&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxPostSize</span>=<span class="string">&quot;2097152&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">maxSwallowSize</span>=<span class="string">&quot;2097152&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">compression</span>=<span class="string">&quot;on&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">compressionMinSize</span>=<span class="string">&quot;2048&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">compressibleMimeType</span>=<span class="string">&quot;text/html,text/plain,text/css,application/json,application/javascript&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">server</span>=<span class="string">&quot;&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>有共享 Executor 时 Connector 的 <code>maxThreads</code> 不生效。<code>maxQueueSize</code> 用来限制等待任务，避免无界排队；具体属性是否受目标 Tomcat 小版本支持，要在升级时对照官方组件文档并执行启动校验。</p>
+<h3 id="3-1-连接参数的关系"><a href="#3-1-连接参数的关系" class="headerlink" title="3.1 连接参数的关系"></a>3.1 连接参数的关系</h3><ul>
+<li><code>maxConnections</code>：Tomcat 同时接受并处理的连接上限；</li>
+<li><code>acceptCount</code>：达到最大连接数后操作系统等待队列长度；</li>
+<li><code>somaxconn</code>：内核监听队列上限；</li>
+<li><code>maxKeepAliveRequests</code>：单连接最多请求数；</li>
+<li><code>keepAliveTimeout</code>：等待下一请求的时间。</li>
+</ul>
+<p>入口代理到 Tomcat 应复用 upstream keep-alive。若每个请求都新建连接，临时端口、握手和 <code>TIME_WAIT</code> 会先成为瓶颈。</p>
+<h2 id="4-超时必须从入口向下递减"><a href="#4-超时必须从入口向下递减" class="headerlink" title="4. 超时必须从入口向下递减"></a>4. 超时必须从入口向下递减</h2><p>假设网关总预算 5 s，可采用：Tomcat 异步请求 4.5 s、远程调用 2 s、数据库查询 1 s、连接池获取 200 ms。上游先超时而下游继续执行会浪费资源。</p>
+<p>Tomcat 的 <code>connectionTimeout</code> 是读取请求行&#x2F;建立请求的边界，不是业务方法执行超时。业务超时要在 Servlet Async、Spring MVC、数据库和 HTTP 客户端分别配置，并传递截止时间。</p>
+<p>对上传接口单独设置路径和大小限制。全站把 <code>maxPostSize=-1</code> 会让异常请求占用内存、临时磁盘和线程。</p>
+<h2 id="5-平台线程与虚拟线程"><a href="#5-平台线程与虚拟线程" class="headerlink" title="5. 平台线程与虚拟线程"></a>5. 平台线程与虚拟线程</h2><p>Java 21 + 支持版本的 Tomcat 可使用虚拟线程 Executor：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Executor</span></span></span><br><span class="line"><span class="tag">  <span class="attr">name</span>=<span class="string">&quot;virtualThreadExecutor&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">className</span>=<span class="string">&quot;org.apache.catalina.core.StandardVirtualThreadExecutor&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">namePrefix</span>=<span class="string">&quot;tomcat-vt-&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>虚拟线程适合大量阻塞 I&#x2F;O，但不会增加数据库连接、CPU 或下游容量。必须用 Semaphore、连接池、限流器等限制外部资源并发。JNI、长时间 synchronized pinning 和 APM Agent 需要通过 JFR <code>jdk.VirtualThreadPinned</code> 事件验证。</p>
+<p>平台线程模型更成熟且容易用有界队列施加背压。两者应在真实请求和故障场景下比较 p99、RSS、CPU、下游并发和拒绝行为。</p>
+<h2 id="6-JVM-和内存"><a href="#6-JVM-和内存" class="headerlink" title="6. JVM 和内存"></a>6. JVM 和内存</h2><p>Tomcat 本身通常不是主要堆消费者，Web 应用、缓存、Session 和序列化对象才是。容器内存必须预留 Metaspace、线程栈、Direct Buffer、Agent 和 PageCache。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">-Xms4g -Xmx4g</span><br><span class="line">-Xss512k</span><br><span class="line">-XX:+UseG1GC</span><br><span class="line">-XX:MaxGCPauseMillis=200</span><br><span class="line">-XX:+HeapDumpOnOutOfMemoryError</span><br><span class="line">-XX:HeapDumpPath=/var/log/tomcat/heapdump.hprof</span><br><span class="line">-XX:+ExitOnOutOfMemoryError</span><br><span class="line">-Xlog:gc*,safepoint:file=/var/log/tomcat/gc-%t.log:time,level,tags:filecount=10,filesize=100m</span><br></pre></td></tr></table></figure>
+
+<p>不要把 Heap Dump 写到空间很小的根分区。线程数增长时，同时计算 <code>线程数 × Xss</code> 和本地线程资源。</p>
+<h2 id="7-Session-和应用部署"><a href="#7-Session-和应用部署" class="headerlink" title="7. Session 和应用部署"></a>7. Session 和应用部署</h2><p>无状态服务优先把 Session 变为短期令牌或外部存储。Tomcat 内存 Session 会增加堆和 Full GC 风险，集群复制 Session 会产生网络与序列化开销。</p>
+<p>必须使用 Session 时：</p>
+<ul>
+<li>设置合理的 <code>session-timeout</code>；</li>
+<li>不保存大对象、连接、线程或不可序列化对象；</li>
+<li>监控活动 Session 数与平均大小；</li>
+<li>粘性会话要有节点故障后的重新登录&#x2F;恢复策略。</li>
+</ul>
+<p>生产关闭 JSP 热检查、自动部署和目录扫描中不需要的功能。固定构建制品，一次部署一个版本，滚动更新前确保 readiness 真正代表可接流量。</p>
+<h2 id="8-静态资源、压缩和代理头"><a href="#8-静态资源、压缩和代理头" class="headerlink" title="8. 静态资源、压缩和代理头"></a>8. 静态资源、压缩和代理头</h2><p>静态文件优先由 CDN&#x2F;入口代理提供。小 JSON&#x2F;文本适合 gzip&#x2F;brotli；图片、ZIP 等已压缩内容不要重复压缩。CPU 饱和时对比压缩等级与带宽收益。</p>
+<p>反向代理场景必须正确处理 <code>RemoteIpValve</code>，并只信任内部代理网段，否则客户端可伪造 <code>X-Forwarded-For</code>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Valve</span></span></span><br><span class="line"><span class="tag">  <span class="attr">className</span>=<span class="string">&quot;org.apache.catalina.valves.RemoteIpValve&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">internalProxies</span>=<span class="string">&quot;10\.0\.\d+\.\d+|192\.168\.\d+\.\d+&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">remoteIpHeader</span>=<span class="string">&quot;x-forwarded-for&quot;</span></span></span><br><span class="line"><span class="tag">  <span class="attr">protocolHeader</span>=<span class="string">&quot;x-forwarded-proto&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="9-诊断与指标"><a href="#9-诊断与指标" class="headerlink" title="9. 诊断与指标"></a>9. 诊断与指标</h2><p>通过 JMX&#x2F;Micrometer 采集：</p>
+<ul>
+<li>当前&#x2F;最大线程、busy threads、队列和拒绝；</li>
+<li>当前连接、请求数、错误数、接收&#x2F;发送字节；</li>
+<li>各 URI 的 RPS、p95&#x2F;p99；</li>
+<li>JVM GC、堆、线程、类和 Direct Buffer；</li>
+<li>数据库&#x2F;HTTP 连接池等待。</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 线程和连接现场</span></span><br><span class="line">jcmd &lt;pid&gt; Thread.<span class="built_in">print</span> &gt; /tmp/threads.txt</span><br><span class="line">ss -ant <span class="string">&#x27;( sport = :8080 )&#x27;</span></span><br><span class="line">pidstat -wt -p &lt;pid&gt; 1</span><br><span class="line"></span><br><span class="line"><span class="comment"># JMX 已接入 Prometheus 时检查线程饱和</span></span><br><span class="line">curl -s localhost:8081/actuator/prometheus | grep -E <span class="string">&#x27;tomcat_threads|http_server_requests&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>大量线程都等待同一个连接池或锁时，调大 <code>maxThreads</code> 是反方向。</p>
+<h2 id="10-压测和过载验收"><a href="#10-压测和过载验收" class="headerlink" title="10. 压测和过载验收"></a>10. 压测和过载验收</h2><p>压测应包含快接口、慢查询、上传、下载、keep-alive、连接突增和下游超时。阶梯加压直到首个资源饱和，再验证限流和拒绝是否快速、可观测。</p>
+<p>至少比较吞吐、p95&#x2F;p99、busy&#x2F;max threads、队列、活动连接、上下文切换、GC、RSS、下游连接池等待和错误类型。p99 恶化 10%、队列持续增长或下游被压垮时回滚。</p>
+<h2 id="11-参考资料"><a href="#11-参考资料" class="headerlink" title="11. 参考资料"></a>11. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://tomcat.apache.org/tomcat-11.0-doc/config/">Tomcat 11 配置索引</a></li>
+<li><a target="_blank" rel="noopener" href="https://tomcat.apache.org/tomcat-11.0-doc/config/http.html">Tomcat 11 HTTP Connector</a></li>
+<li><a target="_blank" rel="noopener" href="https://tomcat.apache.org/tomcat-11.0-doc/config/executor.html">Tomcat 11 Executor</a></li>
+<li><a target="_blank" rel="noopener" href="https://tomcat.apache.org/tomcat-10.1-doc/config/http.html">Tomcat 10.1 HTTP Connector</a></li>
+<li><a target="_blank" rel="noopener" href="https://tomcat.apache.org/tomcat-11.0-doc/security-howto.html">Tomcat 安全注意事项</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.oracle.com/en/java/javase/25/gctuning/">Oracle Java 25 GC 调优</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/ecs/support/tomcat/">阿里云 Tomcat 站点性能问题排查</a></li>
+</ul>
+<h2 id="12-Ansible-配置"><a href="#12-Ansible-配置" class="headerlink" title="12. Ansible 配置"></a>12. Ansible 配置</h2><p>示例只管理 JVM 和 systemd 边界；<code>server.xml</code> 建议在应用仓库中使用完整模板，经预发布验证后发布，避免片段替换破坏 XML。</p>
+<figure class="highlight yaml"><figcaption><span>tomcat-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置</span> <span class="string">Tomcat</span> <span class="string">运行基线</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">tomcat_servers</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">tomcat_service:</span> <span class="string">tomcat</span></span><br><span class="line">    <span class="attr">tomcat_user:</span> <span class="string">tomcat</span></span><br><span class="line">    <span class="attr">tomcat_heap:</span> <span class="string">4g</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">创建日志和转储目录</span></span><br><span class="line">      <span class="attr">ansible.builtin.file:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/var/log/tomcat</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">directory</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; tomcat_user &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; tomcat_user &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0750&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">Tomcat</span> <span class="string">JVM</span> <span class="string">参数</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/default/tomcat-jvm</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">&gt;-</span></span><br><span class="line"><span class="string">          CATALINA_OPTS=&quot;-Xms&#123;&#123; tomcat_heap &#125;&#125; -Xmx&#123;&#123; tomcat_heap &#125;&#125; -Xss512k</span></span><br><span class="line"><span class="string">          -XX:+UseG1GC -XX:MaxGCPauseMillis=200</span></span><br><span class="line"><span class="string">          -XX:+HeapDumpOnOutOfMemoryError</span></span><br><span class="line"><span class="string">          -XX:HeapDumpPath=/var/log/tomcat/heapdump.hprof</span></span><br><span class="line"><span class="string">          -XX:+ExitOnOutOfMemoryError</span></span><br><span class="line"><span class="string">          -Xlog:gc*,safepoint:file=/var/log/tomcat/gc-%t.log:time,level,tags:filecount=10,filesize=100m&quot;</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重启</span> <span class="string">Tomcat</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">创建</span> <span class="string">systemd</span> <span class="string">覆盖目录</span></span><br><span class="line">      <span class="attr">ansible.builtin.file:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">&quot;/etc/systemd/system/<span class="template-variable">&#123;&#123; tomcat_service &#125;&#125;</span>.service.d&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">directory</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0755&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置服务资源边界</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">&quot;/etc/systemd/system/<span class="template-variable">&#123;&#123; tomcat_service &#125;&#125;</span>.service.d/tuning.conf&quot;</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          [Service]</span></span><br><span class="line"><span class="string">          EnvironmentFile=/etc/default/tomcat-jvm</span></span><br><span class="line"><span class="string">          LimitNOFILE=262144</span></span><br><span class="line"><span class="string">          TasksMax=8192</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">重启</span> <span class="string">Tomcat</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">      <span class="attr">ansible.builtin.systemd_service:</span></span><br><span class="line">        <span class="attr">daemon_reload:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重启</span> <span class="string">Tomcat</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; tomcat_service &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">restarted</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Tomcat/" rel="tag"># Tomcat</a>
+              <a href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="tag"># 线程池</a>
+              <a href="/tags/NIO/" rel="tag"># NIO</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/01/09/mongodb-tuning/" rel="prev" title="MongoDB 调优">
+                  <i class="fa fa-angle-left"></i> MongoDB 调优
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/04/17/openresty-tuning/" rel="next" title="OpenResty 调优">
+                  OpenResty 调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

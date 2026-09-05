@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="Spring、Spring Boot、MyBatis&#x2F;Plus、JPA、Netty 与 ShardingSphere-JDBC 的线程、连接、SQL 和分片调优方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="框架调优">
+<meta property="og:url" content="https://kiritoowo.github.io/2025/06/05/framework-tuning/index.html">
+<meta property="og:site_name" content="kirito">
+<meta property="og:description" content="Spring、Spring Boot、MyBatis&#x2F;Plus、JPA、Netty 与 ShardingSphere-JDBC 的线程、连接、SQL 和分片调优方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-06-05T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-12-31T07:00:00.000Z">
+<meta property="article:author" content="ljm">
+<meta property="article:tag" content="JPA">
+<meta property="article:tag" content="MyBatis">
+<meta property="article:tag" content="Netty">
+<meta property="article:tag" content="Spring">
+<meta property="article:tag" content="Spring Boot">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://kiritoowo.github.io/2025/06/05/framework-tuning/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2025/06/05/framework-tuning/","path":"2025/06/05/framework-tuning/","title":"框架调优"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>框架调优 | kirito</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%85%88%E5%BB%BA%E7%AB%8B%E7%BB%9F%E4%B8%80%E5%AE%B9%E9%87%8F%E6%A8%A1%E5%9E%8B"><span class="nav-text">1. 先建立统一容量模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%8F%AF%E8%A7%82%E6%B5%8B%E5%9F%BA%E7%BA%BF"><span class="nav-text">2. 可观测基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-Spring-Core%EF%BC%9A%E4%BB%A3%E7%90%86%E8%BE%B9%E7%95%8C%E5%92%8C%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA"><span class="nav-text">3. Spring Core：代理边界和对象创建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%BA%8B%E5%8A%A1%E4%B8%8E%E5%BC%82%E6%AD%A5%E4%BB%A3%E7%90%86"><span class="nav-text">3.1 事务与异步代理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Bean-%E4%B8%8E%E5%90%AF%E5%8A%A8%E6%97%B6%E9%97%B4"><span class="nav-text">3.2 Bean 与启动时间</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-Spring-Boot-Web-%E5%B1%82"><span class="nav-text">4. Spring Boot Web 层</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-Async-%E5%BF%85%E9%A1%BB%E6%98%BE%E5%BC%8F%E9%85%8D%E7%BD%AE"><span class="nav-text">4.1 @Async 必须显式配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-HikariCP-%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%B9%E9%87%8F"><span class="nav-text">5. HikariCP 与数据库容量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-MyBatis-%E4%B8%8E-MyBatis-Plus"><span class="nav-text">6. MyBatis 与 MyBatis-Plus</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-%E6%9F%A5%E8%AF%A2%E8%BE%B9%E7%95%8C"><span class="nav-text">6.1 查询边界</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-%E6%89%B9%E9%87%8F%E5%86%99"><span class="nav-text">6.2 批量写</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-3-MyBatis-Plus-%E9%98%B2%E5%A4%B1%E6%8E%A7"><span class="nav-text">6.3 MyBatis-Plus 防失控</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-JPA-Hibernate"><span class="nav-text">7. JPA&#x2F;Hibernate</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-Netty"><span class="nav-text">8. Netty</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-ShardingSphere-JDBC"><span class="nav-text">9. ShardingSphere-JDBC</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8E%8B%E6%B5%8B%E4%B8%8E%E5%9B%9E%E5%BD%92%E9%97%A8%E7%A6%81"><span class="nav-text">10. 压测与回归门禁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">11. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#12-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">12. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2025/06/05/framework-tuning/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="框架调优 | kirito">
+      <meta itemprop="description" content="Spring、Spring Boot、MyBatis&#x2F;Plus、JPA、Netty 与 ShardingSphere-JDBC 的线程、连接、SQL 和分片调优方法。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          框架调优
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-06-05 10:00:00" itemprop="dateCreated datePublished" datetime="2025-06-05T10:00:00+08:00">2025-06-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-31 15:00:00" itemprop="dateModified" datetime="2025-12-31T15:00:00+08:00">2025-12-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/%E6%A1%86%E6%9E%B6/" itemprop="url" rel="index"><span itemprop="name">框架</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Spring、Spring Boot、MyBatis/Plus、JPA、Netty 与 ShardingSphere-JDBC 的线程、连接、SQL 和分片调优方法。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>框架调优的主线是一次请求经过的资源池：入口线程、业务执行器、HTTP 连接池、数据库连接池、ORM、分片路由。每个池都必须有上限、等待时间、指标和拒绝策略。</p>
+<span id="more"></span>
+
+<h2 id="1-先建立统一容量模型"><a href="#1-先建立统一容量模型" class="headerlink" title="1. 先建立统一容量模型"></a>1. 先建立统一容量模型</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">并发需求 ≈ 峰值请求/秒 × 平均处理秒数</span><br><span class="line">端到端 p99 ≈ 排队时间 + 应用执行 + RPC + 数据库 + 序列化</span><br></pre></td></tr></table></figure>
+
+<p>如果 1,000 RPS 的接口平均耗时 100 ms，平均在途请求约 100。线程池设为 500 并不会让下游数据库更快，只会允许更多请求同时排队。</p>
+<table>
+<thead>
+<tr>
+<th>资源池</th>
+<th>必须设置</th>
+<th>必须监控</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web 线程&#x2F;虚拟线程</td>
+<td>并发边界、请求超时</td>
+<td>busy、queue、reject</td>
+</tr>
+<tr>
+<td><code>@Async</code> 执行器</td>
+<td>core&#x2F;max&#x2F;queue&#x2F;reject</td>
+<td>active、queue、耗时</td>
+</tr>
+<tr>
+<td>HTTP 客户端</td>
+<td>max total&#x2F;per route、超时</td>
+<td>lease wait、连接失败</td>
+</tr>
+<tr>
+<td>HikariCP</td>
+<td>maximum、acquire timeout</td>
+<td>active、pending、timeout</td>
+</tr>
+<tr>
+<td>Netty EventLoop</td>
+<td>不执行阻塞任务</td>
+<td>pending tasks、event loop lag</td>
+</tr>
+</tbody></table>
+<p>先按最稀缺下游做并发预算，再从外向内设置上限。所有队列无界是最危险的“稳定假象”。</p>
+<h2 id="2-可观测基线"><a href="#2-可观测基线" class="headerlink" title="2. 可观测基线"></a>2. 可观测基线</h2><p>Spring Boot Actuator 只暴露必要端点并置于管理网：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">endpoints:</span></span><br><span class="line">    <span class="attr">web:</span></span><br><span class="line">      <span class="attr">exposure:</span></span><br><span class="line">        <span class="attr">include:</span> <span class="string">health,info,metrics,prometheus</span></span><br><span class="line">  <span class="attr">endpoint:</span></span><br><span class="line">    <span class="attr">health:</span></span><br><span class="line">      <span class="attr">probes:</span></span><br><span class="line">        <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">metrics:</span></span><br><span class="line">    <span class="attr">distribution:</span></span><br><span class="line">      <span class="attr">percentiles-histogram:</span></span><br><span class="line">        <span class="attr">http.server.requests:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>同时记录 JVM&#x2F;JFR、Web p99、各执行器队列、Hikari pending、SQL 模板、HTTP 下游和 GC。只看接口平均耗时无法定位排队发生在哪一层。</p>
+<h2 id="3-Spring-Core：代理边界和对象创建"><a href="#3-Spring-Core：代理边界和对象创建" class="headerlink" title="3. Spring Core：代理边界和对象创建"></a>3. Spring Core：代理边界和对象创建</h2><h3 id="3-1-事务与异步代理"><a href="#3-1-事务与异步代理" class="headerlink" title="3.1 事务与异步代理"></a>3.1 事务与异步代理</h3><p><code>@Transactional</code>、<code>@Async</code> 和缓存通常通过代理实现；同类自调用会绕过代理。事务方法应短小，不能包含远程调用和长计算。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> OrderRepository orderRepository;</span><br><span class="line"></span><br><span class="line">    <span class="type">public</span> <span class="title function_">OrderService</span><span class="params">(OrderRepository orderRepository)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.orderRepository = orderRepository;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Transactional(timeout = 2)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">confirm</span><span class="params">(<span class="type">long</span> orderId)</span> &#123;</span><br><span class="line">        orderRepository.markConfirmed(orderId);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>避免在事务内发同步 HTTP 或等待 MQ 确认。跨系统事件使用 Outbox 或事务消息，将锁持有时间限定在本地数据库操作。</p>
+<h3 id="3-2-Bean-与启动时间"><a href="#3-2-Bean-与启动时间" class="headerlink" title="3.2 Bean 与启动时间"></a>3.2 Bean 与启动时间</h3><p>不要用全包扫描把测试、脚本和无关模块带进生产上下文。大型项目按功能拆 <code>@Configuration</code>，使用条件装配，并通过 Spring Boot Startup Endpoint&#x2F;JFR 找慢 Bean。<code>spring.main.lazy-initialization=true</code> 只把成本推迟到首个请求，还可能延后暴露配置错误，不宜作为默认优化。</p>
+<h2 id="4-Spring-Boot-Web-层"><a href="#4-Spring-Boot-Web-层" class="headerlink" title="4. Spring Boot Web 层"></a>4. Spring Boot Web 层</h2><p>平台线程模型示例：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">tomcat:</span></span><br><span class="line">    <span class="attr">threads:</span></span><br><span class="line">      <span class="attr">max:</span> <span class="number">240</span></span><br><span class="line">      <span class="attr">min-spare:</span> <span class="number">20</span></span><br><span class="line">    <span class="attr">max-connections:</span> <span class="number">8192</span></span><br><span class="line">    <span class="attr">accept-count:</span> <span class="number">500</span></span><br><span class="line">    <span class="attr">connection-timeout:</span> <span class="string">3s</span></span><br><span class="line">  <span class="attr">shutdown:</span> <span class="string">graceful</span></span><br><span class="line"></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">lifecycle:</span></span><br><span class="line">    <span class="attr">timeout-per-shutdown-phase:</span> <span class="string">30s</span></span><br></pre></td></tr></table></figure>
+
+<p>Java 21 可试验虚拟线程：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">threads:</span></span><br><span class="line">    <span class="attr">virtual:</span></span><br><span class="line">      <span class="attr">enabled:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>启用后仍要限制数据库、HTTP 和消息消费并发。用 JFR 检查 pinned virtual thread，并确认所有监控组件兼容。</p>
+<h3 id="4-1-Async-必须显式配置"><a href="#4-1-Async-必须显式配置" class="headerlink" title="4.1 @Async 必须显式配置"></a>4.1 <code>@Async</code> 必须显式配置</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Bean(&quot;notificationExecutor&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">ThreadPoolTaskExecutor</span> <span class="title function_">notificationExecutor</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">ThreadPoolTaskExecutor</span> <span class="variable">executor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ThreadPoolTaskExecutor</span>();</span><br><span class="line">    executor.setCorePoolSize(<span class="number">8</span>);</span><br><span class="line">    executor.setMaxPoolSize(<span class="number">32</span>);</span><br><span class="line">    executor.setQueueCapacity(<span class="number">500</span>);</span><br><span class="line">    executor.setKeepAliveSeconds(<span class="number">60</span>);</span><br><span class="line">    executor.setThreadNamePrefix(<span class="string">&quot;notify-&quot;</span>);</span><br><span class="line">    executor.setRejectedExecutionHandler(<span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>.CallerRunsPolicy());</span><br><span class="line">    executor.initialize();</span><br><span class="line">    <span class="keyword">return</span> executor;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>CallerRunsPolicy</code> 能产生反压，但会占用调用线程；不适合必须快速返回的入口。不同业务使用独立执行器，避免邮件任务堵塞订单任务。</p>
+<h2 id="5-HikariCP-与数据库容量"><a href="#5-HikariCP-与数据库容量" class="headerlink" title="5. HikariCP 与数据库容量"></a>5. HikariCP 与数据库容量</h2><p>连接池不是越大越快。数据库 CPU 核数、I&#x2F;O 和活跃查询才决定有效并发。每实例从 10～30 条连接压测，集群总连接要小于数据库预算。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">datasource:</span></span><br><span class="line">    <span class="attr">hikari:</span></span><br><span class="line">      <span class="attr">maximum-pool-size:</span> <span class="number">24</span></span><br><span class="line">      <span class="attr">minimum-idle:</span> <span class="number">8</span></span><br><span class="line">      <span class="attr">connection-timeout:</span> <span class="number">1000</span></span><br><span class="line">      <span class="attr">validation-timeout:</span> <span class="number">1000</span></span><br><span class="line">      <span class="attr">idle-timeout:</span> <span class="number">600000</span></span><br><span class="line">      <span class="attr">max-lifetime:</span> <span class="number">1740000</span></span><br><span class="line">      <span class="attr">keepalive-time:</span> <span class="number">120000</span></span><br></pre></td></tr></table></figure>
+
+<p><code>max-lifetime</code> 应短于数据库、代理和网络设备的连接回收时间。<code>leak-detection-threshold</code> 适合诊断期，阈值过低会生成大量堆栈并把慢 SQL 误报为泄漏。</p>
+<p>关键指标是 pending threads 和 acquire time。连接持续不够时先看慢 SQL、事务和数据库饱和度，再决定扩池。</p>
+<h2 id="6-MyBatis-与-MyBatis-Plus"><a href="#6-MyBatis-与-MyBatis-Plus" class="headerlink" title="6. MyBatis 与 MyBatis-Plus"></a>6. MyBatis 与 MyBatis-Plus</h2><h3 id="6-1-查询边界"><a href="#6-1-查询边界" class="headerlink" title="6.1 查询边界"></a>6.1 查询边界</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">mybatis:</span></span><br><span class="line">  <span class="attr">configuration:</span></span><br><span class="line">    <span class="attr">default-statement-timeout:</span> <span class="number">3</span></span><br><span class="line">    <span class="attr">default-fetch-size:</span> <span class="number">200</span></span><br><span class="line">    <span class="attr">map-underscore-to-camel-case:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">local-cache-scope:</span> <span class="string">statement</span></span><br></pre></td></tr></table></figure>
+
+<p><code>fetch-size</code> 是驱动提示，实际行为取决于 JDBC 驱动。列表接口使用明确 DTO、字段清单和最大页大小，不要返回实体全列。</p>
+<p>MyBatis 的嵌套 select 容易形成 N+1：一页 100 条数据再查询 100 次关联表。改为 JOIN、批量 <code>IN</code>（有数量上限）或两阶段批量查询，并用 SQL 计数测试防回归。</p>
+<h3 id="6-2-批量写"><a href="#6-2-批量写" class="headerlink" title="6.2 批量写"></a>6.2 批量写</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span> (<span class="type">SqlSession</span> <span class="variable">session</span> <span class="operator">=</span> sqlSessionFactory.openSession(ExecutorType.BATCH, <span class="literal">false</span>)) &#123;</span><br><span class="line">    <span class="type">OrderMapper</span> <span class="variable">mapper</span> <span class="operator">=</span> session.getMapper(OrderMapper.class);</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; orders.size(); i++) &#123;</span><br><span class="line">        mapper.insert(orders.get(i));</span><br><span class="line">        <span class="keyword">if</span> ((i + <span class="number">1</span>) % <span class="number">500</span> == <span class="number">0</span>) &#123;</span><br><span class="line">            session.flushStatements();</span><br><span class="line">            session.commit();</span><br><span class="line">            session.clearCache();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    session.commit();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>批次按行数和字节数双重限制。MySQL 驱动批写还需验证 <code>rewriteBatchedStatements</code> 对当前语句是否有效。</p>
+<h3 id="6-3-MyBatis-Plus-防失控"><a href="#6-3-MyBatis-Plus-防失控" class="headerlink" title="6.3 MyBatis-Plus 防失控"></a>6.3 MyBatis-Plus 防失控</h3><p>分页插件设置 <code>maxLimit</code>，并限制单页大小；多租户、逻辑删除和数据权限插件会改写 SQL，上线前必须对生成 SQL 执行 <code>EXPLAIN ANALYZE</code>。Wrapper 中禁止直接拼接未校验的列名和 SQL 片段。</p>
+<h2 id="7-JPA-Hibernate"><a href="#7-JPA-Hibernate" class="headerlink" title="7. JPA&#x2F;Hibernate"></a>7. JPA&#x2F;Hibernate</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">jpa:</span></span><br><span class="line">    <span class="attr">open-in-view:</span> <span class="literal">false</span></span><br><span class="line">    <span class="attr">properties:</span></span><br><span class="line">      <span class="attr">hibernate:</span></span><br><span class="line">        <span class="attr">jdbc:</span></span><br><span class="line">          <span class="attr">batch_size:</span> <span class="number">50</span></span><br><span class="line">          <span class="attr">fetch_size:</span> <span class="number">200</span></span><br><span class="line">        <span class="attr">order_inserts:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">order_updates:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">query:</span></span><br><span class="line">          <span class="attr">fail_on_pagination_over_collection_fetch:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>关闭 Open Session in View 后，查询边界变得明确，避免模板&#x2F;序列化阶段意外触发 SQL。通过 fetch join、EntityGraph 或 DTO projection 解决 N+1，但不能同时 fetch 多个大集合后分页。</p>
+<p>批量写入每 50～500 条 <code>flush()</code> + <code>clear()</code>，否则 Persistence Context 会持续持有实体。数据库使用 IDENTITY 主键时，Hibernate JDBC batching 可能受限，需按数据库策略验证。</p>
+<p>二级缓存只适合读多写少且失效语义明确的数据。缓存命中率低或失效频繁时，它会增加复杂度而非提速。</p>
+<h2 id="8-Netty"><a href="#8-Netty" class="headerlink" title="8. Netty"></a>8. Netty</h2><p>Netty 的 EventLoop 负责 I&#x2F;O 事件，严禁在其中执行 JDBC、阻塞 HTTP、文件 I&#x2F;O 或长计算。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">EventLoopGroup</span> <span class="variable">bossGroup</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>(<span class="number">1</span>);</span><br><span class="line"><span class="type">EventLoopGroup</span> <span class="variable">workerGroup</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line"><span class="type">DefaultEventExecutorGroup</span> <span class="variable">businessGroup</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DefaultEventExecutorGroup</span>(<span class="number">32</span>);</span><br><span class="line"></span><br><span class="line"><span class="type">ServerBootstrap</span> <span class="variable">bootstrap</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ServerBootstrap</span>()</span><br><span class="line">    .group(bossGroup, workerGroup)</span><br><span class="line">    .channel(NioServerSocketChannel.class)</span><br><span class="line">    .option(ChannelOption.SO_BACKLOG, <span class="number">4096</span>)</span><br><span class="line">    .childOption(ChannelOption.TCP_NODELAY, <span class="literal">true</span>)</span><br><span class="line">    .childOption(ChannelOption.SO_KEEPALIVE, <span class="literal">true</span>)</span><br><span class="line">    .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,</span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">WriteBufferWaterMark</span>(<span class="number">32</span> * <span class="number">1024</span>, <span class="number">64</span> * <span class="number">1024</span>));</span><br><span class="line"></span><br><span class="line">pipeline.addLast(businessGroup, <span class="string">&quot;businessHandler&quot;</span>, businessHandler);</span><br></pre></td></tr></table></figure>
+
+<p>默认 worker 线程数通常已按 CPU 计算，先保留默认。监控 pending tasks、EventLoop lag、direct memory、allocator、channel 数和不可写时间。Channel <code>isWritable=false</code> 时上游必须停止或降低写入。</p>
+<p>引用计数 <code>ByteBuf</code> 必须在所有异常分支释放；测试环境启用高级 leak detector，生产保留较低采样以控制开销。</p>
+<p>Linux 可在验证兼容性后使用 native epoll&#x2F;io_uring transport，但收益取决于负载，不应在没有基准测试时替换。</p>
+<h2 id="9-ShardingSphere-JDBC"><a href="#9-ShardingSphere-JDBC" class="headerlink" title="9. ShardingSphere-JDBC"></a>9. ShardingSphere-JDBC</h2><p>分片的第一性能原则是让 SQL 携带 shard key。缺失分片键会路由到全部数据源，分页、排序和聚合需要在内存归并。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">shardingsphere:</span></span><br><span class="line">    <span class="attr">datasource:</span></span><br><span class="line">      <span class="attr">names:</span> <span class="string">ds0,ds1</span></span><br><span class="line">    <span class="attr">rules:</span></span><br><span class="line">      <span class="attr">sharding:</span></span><br><span class="line">        <span class="attr">tables:</span></span><br><span class="line">          <span class="attr">t_order:</span></span><br><span class="line">            <span class="attr">actual-data-nodes:</span> <span class="string">ds$-&gt;&#123;0..1&#125;.t_order_$-&gt;&#123;0..15&#125;</span></span><br><span class="line">            <span class="attr">database-strategy:</span></span><br><span class="line">              <span class="attr">standard:</span></span><br><span class="line">                <span class="attr">sharding-column:</span> <span class="string">tenant_id</span></span><br><span class="line">                <span class="attr">sharding-algorithm-name:</span> <span class="string">tenant-inline</span></span><br><span class="line">            <span class="attr">table-strategy:</span></span><br><span class="line">              <span class="attr">standard:</span></span><br><span class="line">                <span class="attr">sharding-column:</span> <span class="string">order_id</span></span><br><span class="line">                <span class="attr">sharding-algorithm-name:</span> <span class="string">order-inline</span></span><br></pre></td></tr></table></figure>
+
+<p>调优时检查：实际路由单元、每个物理数据源连接池、SQL 改写、归并内存和跨库事务。广播表适合小且变化不频繁的字典，不适合大表。</p>
+<p>避免跨分片无界分页。按分片键定向查询，或者建设独立检索&#x2F;分析索引。分片数、表数和数据源连接池相乘后可能产生巨大连接总量，必须做全局预算。</p>
+<h2 id="10-压测与回归门禁"><a href="#10-压测与回归门禁" class="headerlink" title="10. 压测与回归门禁"></a>10. 压测与回归门禁</h2><ol>
+<li>固定数据规模、JDK、容器资源和下游版本。</li>
+<li>预热 JIT、连接池和缓存后再采样。</li>
+<li>阶梯增加并发，找到 Web、执行器、连接池、数据库或 CPU 中第一个饱和点。</li>
+<li>故意让数据库和 RPC 变慢，验证超时、拒绝和恢复。</li>
+<li>比较吞吐、p99、队列、pending、SQL 数、扫描行、GC 和 RSS。</li>
+</ol>
+<p>性能测试中增加断言：单请求 SQL 数上限、最大分页、连接池等待、分片路由数和响应字节数，防止后续代码重新引入 N+1。</p>
+<h2 id="11-参考资料"><a href="#11-参考资料" class="headerlink" title="11. 参考资料"></a>11. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://docs.spring.io/spring-framework/reference/">Spring Framework 参考文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.spring.io/spring-boot/reference/actuator/">Spring Boot 性能与生产特性</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.spring.io/spring-boot/appendix/application-properties/">Spring Boot 应用属性</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby">HikariCP 配置说明</a></li>
+<li><a target="_blank" rel="noopener" href="https://mybatis.org/mybatis-3/configuration.html">MyBatis 官方配置</a></li>
+<li><a target="_blank" rel="noopener" href="https://baomidou.com/plugins/pagination/">MyBatis-Plus 分页插件</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#performance">Hibernate 性能调优</a></li>
+<li><a target="_blank" rel="noopener" href="https://netty.io/wiki/user-guide-for-4.x.html">Netty 用户指南</a></li>
+<li><a target="_blank" rel="noopener" href="https://shardingsphere.apache.org/document/current/en/reference/sharding/">Apache ShardingSphere 性能测试</a></li>
+</ul>
+<h2 id="12-Ansible-配置"><a href="#12-Ansible-配置" class="headerlink" title="12. Ansible 配置"></a>12. Ansible 配置</h2><figure class="highlight yaml"><figcaption><span>framework-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">部署</span> <span class="string">Spring</span> <span class="string">Boot</span> <span class="string">生产参数</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">spring_apps</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">application_name:</span> <span class="string">order-service</span></span><br><span class="line">    <span class="attr">datasource_pool_size:</span> <span class="number">24</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">创建应用配置目录</span></span><br><span class="line">      <span class="attr">ansible.builtin.file:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">&quot;/etc/<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">directory</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0750&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入生产配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">&quot;/etc/<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>/application-prod.yml&quot;</span></span><br><span class="line">        <span class="attr">owner:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">group:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0640&quot;</span></span><br><span class="line">        <span class="attr">backup:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          server:</span></span><br><span class="line"><span class="string">            tomcat:</span></span><br><span class="line"><span class="string">              threads:</span></span><br><span class="line"><span class="string">                max: 240</span></span><br><span class="line"><span class="string">                min-spare: 20</span></span><br><span class="line"><span class="string">              max-connections: 8192</span></span><br><span class="line"><span class="string">              accept-count: 500</span></span><br><span class="line"><span class="string">              connection-timeout: 3s</span></span><br><span class="line"><span class="string">            shutdown: graceful</span></span><br><span class="line"><span class="string">          spring:</span></span><br><span class="line"><span class="string">            lifecycle:</span></span><br><span class="line"><span class="string">              timeout-per-shutdown-phase: 30s</span></span><br><span class="line"><span class="string">            datasource:</span></span><br><span class="line"><span class="string">              hikari:</span></span><br><span class="line"><span class="string">                maximum-pool-size: &#123;&#123; datasource_pool_size &#125;&#125;</span></span><br><span class="line"><span class="string">                minimum-idle: 8</span></span><br><span class="line"><span class="string">                connection-timeout: 1000</span></span><br><span class="line"><span class="string">                validation-timeout: 1000</span></span><br><span class="line"><span class="string">                max-lifetime: 1740000</span></span><br><span class="line"><span class="string">                keepalive-time: 120000</span></span><br><span class="line"><span class="string">            jpa:</span></span><br><span class="line"><span class="string">              open-in-view: false</span></span><br><span class="line"><span class="string">          management:</span></span><br><span class="line"><span class="string">            endpoints:</span></span><br><span class="line"><span class="string">              web:</span></span><br><span class="line"><span class="string">                exposure:</span></span><br><span class="line"><span class="string">                  include: health,info,metrics,prometheus</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重启应用</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重启应用</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; application_name &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">restarted</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Spring/" rel="tag"># Spring</a>
+              <a href="/tags/Spring-Boot/" rel="tag"># Spring Boot</a>
+              <a href="/tags/MyBatis/" rel="tag"># MyBatis</a>
+              <a href="/tags/JPA/" rel="tag"># JPA</a>
+              <a href="/tags/Netty/" rel="tag"># Netty</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/04/17/openresty-tuning/" rel="prev" title="OpenResty 调优">
+                  <i class="fa fa-angle-left"></i> OpenResty 调优
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/07/24/distributed-framework-tuning/" rel="next" title="分布式框架调优">
+                  分布式框架调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

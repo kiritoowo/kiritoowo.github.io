@@ -1,133 +1,47 @@
 <!DOCTYPE html>
-
-
-
-
-<html class="theme-next pisces" lang="zh-Hans">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8"/>
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<meta name="theme-color" content="#222">
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
 
 
 
+<link rel="stylesheet" href="/lib/fontawesome/css/all.min.css">
 
+<script class="next-config" data-name="main" type="application/json">{"hostname":"kiritoowo.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.29.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":260,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"github","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"flat"},"fold":{"enable":false,"height":500},"language":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":false,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"top_n_per_article":3,"unescape":true,"preload":false}}</script><script src="/js/config.js" defer></script>
 
-
-
-
-
-<meta http-equiv="Cache-Control" content="no-transform" />
-<meta http-equiv="Cache-Control" content="no-siteapp" />
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
-
-
-
-
-
-
-
-<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
-
-<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
-
-
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
-
-
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
-
-
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
-
-
-  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
-
-
-
-
-
-  <meta name="keywords" content="Ubuntu,Linux,安全,内核," />
-
-
-
-
-
-
-
-
-
-
-<meta name="description" content="容量规划与变更顺序 调优不是把所有上限调大。先依据连接数、文件描述符、网卡带宽、磁盘 IOPS 和内存水位建立容量表，再定位最先饱和的资源。应用最大连接数、反向代理连接数、数据库连接池和 nofile 必须来自同一份预算；否则应用看似仍有线程，实际已被内核队列或端口耗尽限制。 阶段动作通过条件基线连续采集 24 小时 CPU、内存、网络、磁盘、连接数明确高峰 QPS 与 p99压测逐级提高并发，单">
+    <meta name="description" content="Ubuntu 24.04 LTS 从安全初始化、容量基线到文件句柄、内存、交换分区、磁盘与 TCP 的生产调优方法。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="服务器参数调优篇：Ubuntu LTS 初始化、安全与内核基线">
+<meta property="og:title" content="服务器调优">
 <meta property="og:url" content="https://kiritoowo.github.io/2024/01/18/server-tuning/index.html">
 <meta property="og:site_name" content="kirito">
-<meta property="og:description" content="容量规划与变更顺序 调优不是把所有上限调大。先依据连接数、文件描述符、网卡带宽、磁盘 IOPS 和内存水位建立容量表，再定位最先饱和的资源。应用最大连接数、反向代理连接数、数据库连接池和 nofile 必须来自同一份预算；否则应用看似仍有线程，实际已被内核队列或端口耗尽限制。 阶段动作通过条件基线连续采集 24 小时 CPU、内存、网络、磁盘、连接数明确高峰 QPS 与 p99压测逐级提高并发，单">
-<meta property="og:locale">
+<meta property="og:description" content="Ubuntu 24.04 LTS 从安全初始化、容量基线到文件句柄、内存、交换分区、磁盘与 TCP 的生产调优方法。">
+<meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2024-01-18T02:00:00.000Z">
-<meta property="article:modified_time" content="2026-09-05T05:36:17.452Z">
+<meta property="article:modified_time" content="2025-12-18T02:00:00.000Z">
 <meta property="article:author" content="ljm">
-<meta property="article:tag" content="Ubuntu">
 <meta property="article:tag" content="Linux">
-<meta property="article:tag" content="安全">
+<meta property="article:tag" content="Ubuntu">
 <meta property="article:tag" content="内核">
+<meta property="article:tag" content="安全">
 <meta name="twitter:card" content="summary">
 
 
-
-<script type="text/javascript" id="hexo.configurations">
-  var NexT = window.NexT || {};
-  var CONFIG = {
-    root: '',
-    scheme: 'Pisces',
-    version: '5.1.4',
-    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
-    fancybox: true,
-    tabs: true,
-    motion: {"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    duoshuo: {
-      userId: '0',
-      author: '博主'
-    },
-    algolia: {
-      applicationID: '',
-      apiKey: '',
-      indexName: '',
-      hits: {"per_page":10},
-      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
-    }
-  };
-</script>
+<link rel="canonical" href="https://kiritoowo.github.io/2024/01/18/server-tuning/">
 
 
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://kiritoowo.github.io/2024/01/18/server-tuning/","path":"2024/01/18/server-tuning/","title":"服务器调优"}</script>
 
-  <link rel="canonical" href="https://kiritoowo.github.io/2024/01/18/server-tuning/"/>
-
-
-
-
-
-  <title>服务器参数调优篇：Ubuntu LTS 初始化、安全与内核基线 | kirito</title>
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>服务器调优 | kirito</title>
   
 
 
@@ -137,1027 +51,482 @@
 
 
 
-<meta name="generator" content="Hexo 7.3.0"><link rel="stylesheet" href="/css/tuning.css">
+  
+  <script src="/lib/pjax/pjax.min.js" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script><script src="/js/pjax.js" defer></script>
+
+  <script src="/lib/search/search.js" defer></script>
+<script src="/js/third-party/search/local-search.js" defer></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="headband"></div>
 
-  
-  
-    
-  
-
-  <div class="container sidebar-position-left page-post-detail">
-    <div class="headband"></div>
-
-    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-wrapper">
-  <div class="site-meta ">
-    
-
-    <div class="custom-logo-site-title">
-      <a href="/"  class="brand" rel="start">
-        <span class="logo-line-before"><i></i></span>
-        <span class="site-title">kirito</span>
-        <span class="logo-line-after"><i></i></span>
-      </a>
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
     </div>
-      
-        <p class="site-subtitle">醒醒 该写代码了</p>
-      
   </div>
 
-  <div class="site-nav-toggle">
-    <button>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-    </button>
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">kirito</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">醒醒，该写代码了</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
   </div>
 </div>
+
+
 
 <nav class="site-nav">
-  
-
-  
-    <ul id="menu" class="menu">
-      
-        
-        <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
-            
-            首页
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-archives">
-          <a href="/archives/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
-            
-            归档
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-categories">
-          <a href="/categories/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
-            
-            分类
-          </a>
-        </li>
-      
-
-      
-        <li class="menu-item menu-item-search">
-          
-            <a href="javascript:;" class="popup-trigger">
-          
-            
-              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
-            
-            搜索
-          </a>
-        </li>
-      
-    </ul>
-  
-
-  
-    <div class="site-search">
-      
-  <div class="popup search-popup local-search-popup">
-  <div class="local-search-header clearfix">
-    <span class="search-icon">
-      <i class="fa fa-search"></i>
-    </span>
-    <span class="popup-btn-close">
-      <i class="fa fa-times-circle"></i>
-    </span>
-    <div class="local-search-input-wrapper">
-      <input autocomplete="off"
-             placeholder="搜索..." spellcheck="false"
-             type="text" id="local-search-input">
-    </div>
-  </div>
-  <div id="local-search-result"></div>
-</div>
-
-
-
-    </div>
-  
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">13</span></a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">50</span></a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">14</span></a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
 </nav>
 
 
 
- </div>
-    </header>
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+      <div class="search-header">
+        <span class="search-icon">
+          <i class="fa fa-search"></i>
+        </span>
+        <div class="search-input-container">
+          <input autocomplete="off" autocapitalize="off" maxlength="80"
+                placeholder="搜索..." spellcheck="false"
+                type="search" class="search-input">
+        </div>
+        <span class="popup-btn-close" role="button">
+          <i class="fa fa-times-circle"></i>
+        </span>
+      </div>
+      <div class="search-result-container">
+        <div class="search-result-icon">
+          <i class="fa fa-spinner fa-pulse fa-5x"></i>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <main id="main" class="main">
-      <div class="main-inner">
-        <div class="content-wrap">
-          <div id="content" class="content">
-            
+</header>
+        
+  
+  <aside class="sidebar">
 
-  <div id="posts" class="posts-expand">
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%85%88%E5%AE%9A%E4%B9%89%E7%9B%AE%E6%A0%87%E5%92%8C%E8%BE%B9%E7%95%8C"><span class="nav-text">1. 先定义目标和边界</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%88%9D%E5%A7%8B%E5%8C%96-Ubuntu-24-04-LTS"><span class="nav-text">2. 初始化 Ubuntu 24.04 LTS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%9B%B4%E6%96%B0%E3%80%81%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5%E5%92%8C%E7%AE%A1%E7%90%86%E8%B4%A6%E5%8F%B7"><span class="nav-text">2.1 更新、时间同步和管理账号</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-SSH-%E5%8A%A0%E5%9B%BA"><span class="nav-text">2.2 SSH 加固</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E8%87%AA%E5%8A%A8%E5%AE%89%E5%85%A8%E6%9B%B4%E6%96%B0"><span class="nav-text">2.3 自动安全更新</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E6%BC%8F%E6%B4%9E%E3%80%81%E5%AE%89%E5%85%A8%E6%89%AB%E6%8F%8F%E4%B8%8E%E5%B0%81%E5%A0%B5"><span class="nav-text">3. 漏洞、安全扫描与封堵</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E9%98%B2%E7%81%AB%E5%A2%99%E4%B8%8E-Fail2ban"><span class="nav-text">4. 防火墙与 Fail2ban</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%BB%BA%E7%AB%8B%E6%80%A7%E8%83%BD%E5%9F%BA%E7%BA%BF"><span class="nav-text">5. 建立性能基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E6%96%87%E4%BB%B6%E5%8F%A5%E6%9F%84%E5%92%8C-systemd-%E9%99%90%E5%88%B6"><span class="nav-text">6. 文件句柄和 systemd 限制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E5%86%85%E5%AD%98%E3%80%81%E4%BA%A4%E6%8D%A2%E5%88%86%E5%8C%BA%E5%92%8C%E8%84%8F%E9%A1%B5"><span class="nav-text">7. 内存、交换分区和脏页</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-TCP-%E5%92%8C%E7%9B%91%E5%90%AC%E9%98%9F%E5%88%97"><span class="nav-text">8. TCP 和监听队列</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-BBR-%E7%9A%84%E4%BD%BF%E7%94%A8%E8%BE%B9%E7%95%8C"><span class="nav-text">8.1 BBR 的使用边界</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%8E%8B%E6%B5%8B%E3%80%81%E7%81%B0%E5%BA%A6%E4%B8%8E%E5%9B%9E%E6%BB%9A"><span class="nav-text">9. 压测、灰度与回滚</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-text">10. 参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-Ansible-%E9%85%8D%E7%BD%AE"><span class="nav-text">11. Ansible 配置</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="ljm"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">ljm</p>
+  <div class="site-description" itemprop="description">记录可验证、可回滚的工程实践</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">50</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/kiritoowo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;kiritoowo" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
     
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
 
   
 
-  
+
+<div class="post-block">
   
   
 
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://kiritoowo.github.io/2024/01/18/server-tuning/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="ljm">
-      <meta itemprop="description" content="">
       <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="ljm">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="kirito">
+      <meta itemprop="description" content="记录可验证、可回滚的工程实践">
     </span>
 
-    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="服务器调优 | kirito">
+      <meta itemprop="description" content="Ubuntu 24.04 LTS 从安全初始化、容量基线到文件句柄、内存、交换分区、磁盘与 TCP 的生产调优方法。">
+    </span>
       <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          服务器调优
+        </h1>
 
-        
-        
-          <h1 class="post-title" itemprop="name headline">服务器参数调优篇：Ubuntu LTS 初始化、安全与内核基线</h1>
-        
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
 
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2024-01-18T10:00:00+08:00">
-                2024-01-18
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index">
-                    <span itemprop="name">调优</span>
-                  </a>
-                </span>
-
-                
-                
-                  ， 
-                
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E8%B0%83%E4%BC%98/%E6%9C%8D%E5%8A%A1%E5%99%A8/" itemprop="url" rel="index">
-                    <span itemprop="name">服务器</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        <h2>容量规划与变更顺序</h2>
-<p>调优不是把所有上限调大。先依据连接数、文件描述符、网卡带宽、磁盘 IOPS 和内存水位建立容量表，再定位最先饱和的资源。应用最大连接数、反向代理连接数、数据库连接池和 <code>nofile</code> 必须来自同一份预算；否则应用看似仍有线程，实际已被内核队列或端口耗尽限制。</p>
-<table><tr><th>阶段</th><th>动作</th><th>通过条件</th></tr><tr><td>基线</td><td>连续采集 24 小时 CPU、内存、网络、磁盘、连接数</td><td>明确高峰 QPS 与 p99</td></tr><tr><td>压测</td><td>逐级提高并发，单次只改一个参数组</td><td>无连接拒绝、无明显重传</td></tr><tr><td>灰度</td><td>先 5% 流量、观察一个高峰周期</td><td>错误率和 p99 不劣化</td></tr><tr><td>回滚</td><td>保留旧 sysctl 文件与服务限制</td><td>可在分钟级恢复</td></tr></table>
-<h2>安全基线细节</h2>
-<p>SSH 只允许密钥登录并限制来源网段；管理面端口不要和公网业务端口混用。Fail2ban 的封禁仅用于减缓暴力破解，不能替代安全组和身份认证。对外服务应启用自动安全更新，并在维护窗口验证内核升级后的驱动、容器运行时和 eBPF 监控兼容性。</p>
-<pre><code># 查看有效限制与连接状态
-systemctl show your-service -p LimitNOFILE
-ulimit -n
-ss -s
-cat /proc/sys/fs/file-nr
-# 查看半连接与重传
-netstat -s | grep -E 'listen|retransmit|SYN'</code></pre>
-<div class="tuning-warn">不要启用已废弃或风险不明确的网络参数，例如 <code>tcp_tw_recycle</code>。NAT、移动网络和多出口环境下，它会造成正常连接被错误丢弃。</div>
-<p class="tuning-lead">Ubuntu 24.04 LTS（兼容 22.04 LTS）生产基线，覆盖初始化、漏洞扫描、UFW/Fail2ban、防火墙、文件句柄、交换分区与 TCP 栈。</p>
-<span id="more"></span><h2>初始化与安全</h2><div class="mermaid">flowchart LR
-<p>A[更新补丁/时区]–&gt;B[SSH最小权限]<br>
-B–&gt;C[Lynis/USG/Trivy扫描]<br>
-C–&gt;D[UFW+Fail2ban]<br>
-D–&gt;E[sysctl与limits]<br>
-E–&gt;F[压测灰度]</div><pre><code>sudo apt update &amp;&amp; sudo apt full-upgrade -y<br>
-sudo timedatectl set-timezone Asia/Shanghai<br>
-sudo apt install -y unattended-upgrades auditd chrony sysstat lynis fail2ban ufw</p>
-<h1>SSH 配置文件</h1>
-<p>PermitRootLogin no<br>
-PasswordAuthentication no<br>
-MaxAuthTries 3</code></pre><p>Ubuntu Pro/USG 执行 CIS Level 1 审计，Trivy 扫描镜像，Lynis 审计主机；云安全组与 UFW 双层白名单。</p><h2>内核参数基线</h2><table><tr><th>类别</th><th>起始值</th><th>关注指标</th></tr><tr><td>句柄</td><td><code>fs.file-max=2097152</code>，nofile=1048576</td><td>EMFILE</td></tr><tr><td>交换</td><td>≥16G 内存配置 4–8G swap，<code>vm.swappiness=1</code></td><td>major fault/IO wait</td></tr><tr><td>脏页</td><td><code>vm.dirty_ratio=10</code>、background=3</td><td>写入尖峰</td></tr><tr><td>队列</td><td><code>somaxconn=65535</code>、<code>tcp_max_syn_backlog=262144</code></td><td>SYN 丢弃</td></tr><tr><td>端口</td><td><code>ip_local_port_range=10240 65535</code>、<code>tcp_fin_timeout=15</code></td><td>TIME_WAIT</td></tr><tr><td>拥塞</td><td><code>tcp_congestion_control=bbr</code></td><td>吞吐/重传</td></tr></table><pre><code>cat &gt; /etc/sysctl.d/99-tuning.conf &lt;&lt;‘EOF’<br>
-fs.file-max=2097152<br>
-vm.swappiness=1<br>
-vm.dirty_ratio=10<br>
-vm.dirty_background_ratio=3<br>
-net.core.somaxconn=65535<br>
-net.ipv4.tcp_max_syn_backlog=262144<br>
-net.ipv4.ip_local_port_range=10240 65535<br>
-net.ipv4.tcp_fin_timeout=15<br>
-net.ipv4.tcp_congestion_control=bbr<br>
-EOF<br>
-sudo sysctl --system</code></pre><p>使用 <code>pidstat</code>、<code>ss -s</code>、<code>sar -n TCP,DEV</code> 建立基线；每次只改一组并保留回滚文件。</p><h2>参考资料</h2><ul class="tuning-refs"><li><a href="https://ubuntu.com/server/docs" target="_blank" rel="noopener">Ubuntu Server</a></li><li><a href="https://ubuntu.com/security/cis" target="_blank" rel="noopener">Ubuntu CIS/USG</a></li><li><a href="https://help.aliyun.com/zh/ecs/user-guide/optimize-linux-instances" target="_blank" rel="noopener">阿里云 Linux 优化</a></li><li><a href="https://www.fail2ban.org/wiki/index.php/Main_Page" target="_blank" rel="noopener">Fail2ban</a></li></ul><h2>Ansible 配置</h2><pre><code>- hosts: linux<br>
-become: true<br>
-tasks:<br>
-- name: 安装安全工具<br>
-ansible.builtin.apt:<br>
-name: [ufw, fail2ban, lynis, auditd, sysstat]<br>
-update_cache: true<br>
-state: present<br>
-- name: 写入 sysctl<br>
-ansible.builtin.copy:<br>
-dest: /etc/sysctl.d/99-tuning.conf<br>
-content: |<br>
-fs.file-max=2097152<br>
-vm.swappiness=1<br>
-net.core.somaxconn=65535<br>
-net.ipv4.tcp_max_syn_backlog=262144<br>
-- name: 应用参数<br>
-ansible.builtin.command: sysctl --system<br>
-- name: 放行 SSH/HTTP/HTTPS<br>
-community.general.ufw:<br>
-rule: allow<br>
-port: “&#123;&#123; item &#125;&#125;”<br>
-proto: tcp<br>
-loop: [22, 80, 443]</code></pre></p>
-
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-        <div class="post-tags">
-          
-            <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
-          
-            <a href="/tags/Linux/" rel="tag"># Linux</a>
-          
-            <a href="/tags/%E5%AE%89%E5%85%A8/" rel="tag"># 安全</a>
-          
-            <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
-          
-        </div>
-      
-
-      
-      
-      
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-          </div>
-
-          <span class="post-nav-divider"></span>
-
-          <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2024/02/22/jvm-tuning/" rel="prev" title="JVM 调优篇：通用参数与 ParallelGC、G1GC、ZGC 选择">
-                JVM 调优篇：通用参数与 ParallelGC、G1GC、ZGC 选择 <i class="fa fa-chevron-right"></i>
-              </a>
-            
-          </div>
-        </div>
-      
-
-      
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-
-    <div class="post-spread">
-      
-    </div>
-  </div>
-
-
-          </div>
-          
-
-
-          
-
-  
-
-
-
-        </div>
-        
-          
-  
-  <div class="sidebar-toggle">
-    <div class="sidebar-toggle-line-wrap">
-      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
-    </div>
-  </div>
-
-  <aside id="sidebar" class="sidebar">
-    
-    <div class="sidebar-inner">
-
-      
-
-      
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
-            文章目录
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
-            站点概览
-          </li>
-        </ul>
-      
-
-      <section class="site-overview-wrap sidebar-panel">
-        <div class="site-overview">
-          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-            
-              <img class="site-author-image" itemprop="image"
-                src="/images/avatar.jpg"
-                alt="ljm" />
-            
-              <p class="site-author-name" itemprop="name">ljm</p>
-              <p class="site-description motion-element" itemprop="description">无限进步</p>
-          </div>
-
-          <nav class="site-state motion-element">
-
-            
-              <div class="site-state-item site-state-posts">
-              
-                <a href="/archives/%7C%7Carchive">
-              
-                  <span class="site-state-item-count">14</span>
-                  <span class="site-state-item-name">日志</span>
-                </a>
-              </div>
-            
-
-            
-              
-              
-              <div class="site-state-item site-state-categories">
-                
-                  <span class="site-state-item-count">13</span>
-                  <span class="site-state-item-name">分类</span>
-                
-              </div>
-            
-
-            
-              
-              
-              <div class="site-state-item site-state-tags">
-                
-                  <span class="site-state-item-count">50</span>
-                  <span class="site-state-item-name">标签</span>
-                
-              </div>
-            
-
-          </nav>
-
-          
-
-          
-            <div class="links-of-author motion-element">
-                
-                  <span class="links-of-author-item">
-                    <a href="https://github.com/kiritoowo" target="_blank" title="GitHub">
-                      
-                        <i class="fa fa-fw fa-github"></i>GitHub</a>
-                  </span>
-                
-            </div>
-          
-
-          
-          
-
-          
-          
-
-          
-
-        </div>
-      </section>
-
-      
-      <!--noindex-->
-        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-              
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">容量规划与变更顺序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">安全基线细节</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">初始化与安全</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link"><span class="nav-number"></span> <span class="nav-text">SSH 配置文件</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">1.</span> <span class="nav-text">内核参数基线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">2.</span> <span class="nav-text">参考资料</span></a></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number">3.</span> <span class="nav-text">Ansible 配置</span></a></li></ol></div>
-            
-
-          </div>
-        </section>
-      <!--/noindex-->
-      
-
-      
-
-    </div>
-  </aside>
-
-
-        
-      </div>
-    </main>
-
-    <footer id="footer" class="footer">
-      <div class="footer-inner">
-        <div class="copyright">&copy; 2018 &mdash; <span itemprop="copyrightYear">2026</span>
-  <span class="with-love">
-    <i class="fa fa-user"></i>
-  </span>
-  <span class="author" itemprop="copyrightHolder">ljm</span>
+      <time title="创建时间：2024-01-18 10:00:00" itemprop="dateCreated datePublished" datetime="2024-01-18T10:00:00+08:00">2024-01-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2025-12-18 10:00:00" itemprop="dateModified" datetime="2025-12-18T10:00:00+08:00">2025-12-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/" itemprop="url" rel="index"><span itemprop="name">调优</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%B0%83%E4%BC%98/%E6%9C%8D%E5%8A%A1%E5%99%A8/" itemprop="url" rel="index"><span itemprop="name">服务器</span></a>
+        </span>
+    </span>
 
   
 </div>
 
+            <div class="post-description">Ubuntu 24.04 LTS 从安全初始化、容量基线到文件句柄、内存、交换分区、磁盘与 TCP 的生产调优方法。</div>
+        </div>
+      </header>
 
-  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文以 Ubuntu 24.04 LTS 为基线，目标不是复制一份“万能 sysctl”，而是建立从安全初始化、容量测量、单项变更到压测回滚的完整闭环。</p>
+<span id="more"></span>
 
+<h2 id="1-先定义目标和边界"><a href="#1-先定义目标和边界" class="headerlink" title="1. 先定义目标和边界"></a>1. 先定义目标和边界</h2><p>服务器参数只改变资源队列、缓存和失败方式，不能创造 CPU、内存、IOPS 或带宽。调优前先写清四件事：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>示例目标</th>
+<th>必须同时记录</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>流量</td>
+<td>峰值 20,000 请求&#x2F;秒</td>
+<td>平均连接时长、上下行字节数</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>p99 小于 200 ms</td>
+<td>p50、p95、错误率</td>
+</tr>
+<tr>
+<td>可用性</td>
+<td>单节点重启不丢服务</td>
+<td>恢复时间、重连峰值</td>
+</tr>
+<tr>
+<td>资源水位</td>
+<td>CPU 小于 70%，内存小于 80%</td>
+<td>运行队列、重传、磁盘时延</td>
+</tr>
+</tbody></table>
+<p>推荐的变更顺序是：<strong>补丁和访问控制 -&gt; 观测基线 -&gt; 服务级限制 -&gt; 内核参数 -&gt; 压测 -&gt; 小流量灰度</strong>。每次只改一组参数，否则指标改善后无法确定原因。</p>
+<h2 id="2-初始化-Ubuntu-24-04-LTS"><a href="#2-初始化-Ubuntu-24-04-LTS" class="headerlink" title="2. 初始化 Ubuntu 24.04 LTS"></a>2. 初始化 Ubuntu 24.04 LTS</h2><h3 id="2-1-更新、时间同步和管理账号"><a href="#2-1-更新、时间同步和管理账号" class="headerlink" title="2.1 更新、时间同步和管理账号"></a>2.1 更新、时间同步和管理账号</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt update</span><br><span class="line"><span class="built_in">sudo</span> apt full-upgrade -y</span><br><span class="line"><span class="built_in">sudo</span> apt install -y chrony unattended-upgrades auditd sysstat ufw fail2ban lynis</span><br><span class="line"><span class="built_in">sudo</span> timedatectl set-timezone Asia/Shanghai</span><br><span class="line"><span class="built_in">sudo</span> systemctl <span class="built_in">enable</span> --now chrony auditd sysstat</span><br><span class="line"></span><br><span class="line"><span class="comment"># 核对时间源和安全更新状态</span></span><br><span class="line">chronyc tracking</span><br><span class="line">pro security-status 2&gt;/dev/null || ubuntu-security-status</span><br></pre></td></tr></table></figure>
 
+<p>生产机使用独立管理账号和 <code>sudo</code>，禁止共享私钥。云主机还要在安全组中限制 SSH 来源，主机防火墙不能替代云安全组。</p>
+<h3 id="2-2-SSH-加固"><a href="#2-2-SSH-加固" class="headerlink" title="2.2 SSH 加固"></a>2.2 SSH 加固</h3><p>先保持一个现有会话，再开第二个会话验证新配置，确认成功后才退出旧会话。</p>
+<figure class="highlight text"><figcaption><span>/etc/ssh/sshd_config.d/10-hardening.conf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">PermitRootLogin no</span><br><span class="line">PasswordAuthentication no</span><br><span class="line">KbdInteractiveAuthentication no</span><br><span class="line">PubkeyAuthentication yes</span><br><span class="line">MaxAuthTries 3</span><br><span class="line">LoginGraceTime 30</span><br><span class="line">AllowGroups ssh-users</span><br><span class="line">X11Forwarding no</span><br></pre></td></tr></table></figure>
 
-  <span class="post-meta-divider">|</span>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 语法验证失败时不要重载服务</span></span><br><span class="line"><span class="built_in">sudo</span> sshd -t</span><br><span class="line"><span class="built_in">sudo</span> systemctl reload ssh</span><br></pre></td></tr></table></figure>
 
+<blockquote>
+<p><strong>边界：</strong> 如果业务依赖密码登录、堡垒机动态账号或云厂商注入机制，应先确认认证链路。不要在未验证密钥时关闭密码登录。</p>
+</blockquote>
+<h3 id="2-3-自动安全更新"><a href="#2-3-自动安全更新" class="headerlink" title="2.3 自动安全更新"></a>2.3 自动安全更新</h3><p><code>unattended-upgrades</code> 适合安装安全修复，但内核、驱动和容器运行时更新仍应经过维护窗口验证。启用后检查 <code>/var/log/unattended-upgrades/</code>，并为“需要重启”建立告警。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> dpkg-reconfigure -plow unattended-upgrades</span><br><span class="line"><span class="built_in">test</span> -f /var/run/reboot-required &amp;&amp; <span class="built_in">cat</span> /var/run/reboot-required.pkgs</span><br></pre></td></tr></table></figure>
 
+<h2 id="3-漏洞、安全扫描与封堵"><a href="#3-漏洞、安全扫描与封堵" class="headerlink" title="3. 漏洞、安全扫描与封堵"></a>3. 漏洞、安全扫描与封堵</h2><p>安全扫描分四层，不要只跑一个工具：</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>工具</th>
+<th>发现的问题</th>
+<th>推荐频率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>软件包</td>
+<td>Ubuntu Security、Ubuntu Pro</td>
+<td>CVE、ESM 覆盖</td>
+<td>每日</td>
+</tr>
+<tr>
+<td>主机基线</td>
+<td>USG CIS、Lynis</td>
+<td>SSH、权限、内核基线</td>
+<td>每周及变更后</td>
+</tr>
+<tr>
+<td>容器&#x2F;制品</td>
+<td>Trivy、Grype</td>
+<td>镜像包和密钥泄漏</td>
+<td>每次构建</td>
+</tr>
+<tr>
+<td>运行时</td>
+<td>auditd、云安全中心</td>
+<td>异常进程、账号和文件变更</td>
+<td>持续</td>
+</tr>
+</tbody></table>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> lynis audit system --quick</span><br><span class="line"></span><br><span class="line"><span class="comment"># 已启用 Ubuntu Pro 的机器可执行 CIS 审计</span></span><br><span class="line"><span class="built_in">sudo</span> pro <span class="built_in">enable</span> usg</span><br><span class="line"><span class="built_in">sudo</span> usg audit cis_level1_server</span><br><span class="line"></span><br><span class="line"><span class="comment"># 镜像扫描应放在 CI 中，HIGH/CRITICAL 阻断发布</span></span><br><span class="line">trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.example.com/order-service:2025.12.1</span><br></pre></td></tr></table></figure>
 
-  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Pisces</a> v5.1.4</div>
+<p>扫描结果要进入工单，至少包含资产、CVE、可利用条件、负责人、修复版本和豁免到期日。开放端口定期用以下命令复核：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> ss -lntup</span><br><span class="line"><span class="built_in">sudo</span> nft list ruleset</span><br><span class="line"><span class="built_in">sudo</span> ufw status numbered</span><br><span class="line"><span class="built_in">sudo</span> ausearch -m USER_LOGIN -ts today</span><br></pre></td></tr></table></figure>
 
+<h2 id="4-防火墙与-Fail2ban"><a href="#4-防火墙与-Fail2ban" class="headerlink" title="4. 防火墙与 Fail2ban"></a>4. 防火墙与 Fail2ban</h2><p>UFW 是 nftables 的管理层。默认拒绝入站，只开放明确端口；数据库、Redis、管理面板等端口不应直接暴露公网。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> ufw default deny incoming</span><br><span class="line"><span class="built_in">sudo</span> ufw default allow outgoing</span><br><span class="line"><span class="built_in">sudo</span> ufw allow from 10.10.0.0/16 to any port 22 proto tcp comment <span class="string">&#x27;堡垒机 SSH&#x27;</span></span><br><span class="line"><span class="built_in">sudo</span> ufw allow 80/tcp</span><br><span class="line"><span class="built_in">sudo</span> ufw allow 443/tcp</span><br><span class="line"><span class="built_in">sudo</span> ufw <span class="built_in">enable</span></span><br></pre></td></tr></table></figure>
 
+<p>Fail2ban 用于降低暴力破解噪声，不能替代密钥认证、MFA 和来源白名单。</p>
+<figure class="highlight ini"><figcaption><span>/etc/fail2ban/jail.d/sshd.local</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[sshd]</span></span><br><span class="line"><span class="attr">enabled</span> = <span class="literal">true</span></span><br><span class="line"><span class="attr">backend</span> = systemd</span><br><span class="line"><span class="attr">maxretry</span> = <span class="number">5</span></span><br><span class="line"><span class="attr">findtime</span> = <span class="number">10</span>m</span><br><span class="line"><span class="attr">bantime</span> = <span class="number">1</span>h</span><br><span class="line"><span class="attr">bantime.increment</span> = <span class="literal">true</span></span><br><span class="line"><span class="attr">bantime.factor</span> = <span class="number">2</span></span><br></pre></td></tr></table></figure>
 
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> fail2ban-client -t</span><br><span class="line"><span class="built_in">sudo</span> systemctl restart fail2ban</span><br><span class="line"><span class="built_in">sudo</span> fail2ban-client status sshd</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-建立性能基线"><a href="#5-建立性能基线" class="headerlink" title="5. 建立性能基线"></a>5. 建立性能基线</h2><p>连续覆盖至少一个业务高峰，不能只截取一分钟的 <code>top</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># CPU、运行队列、上下文切换</span></span><br><span class="line">mpstat -P ALL 1</span><br><span class="line">pidstat -durwt 1</span><br><span class="line">vmstat 1</span><br><span class="line"></span><br><span class="line"><span class="comment"># 内存、缺页和交换</span></span><br><span class="line">free -h</span><br><span class="line">sar -B -W 1 10</span><br><span class="line"></span><br><span class="line"><span class="comment"># 磁盘队列和尾延迟</span></span><br><span class="line">iostat -xz 1</span><br><span class="line"></span><br><span class="line"><span class="comment"># 网络、连接和重传</span></span><br><span class="line">ss -s</span><br><span class="line">sar -n DEV,TCP,ETCP 1</span><br><span class="line">nstat -az | grep -E <span class="string">&#x27;Retrans|Listen|Syncookies&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>判断瓶颈时看证据链：CPU 高要区分用户态、系统态、软中断和 steal；内存不足要同时看 major fault 与 swap I&#x2F;O；磁盘看 <code>await</code>、队列深度和设备饱和度；网络看丢包、重传、SYN 队列溢出和带宽。</p>
+<h2 id="6-文件句柄和-systemd-限制"><a href="#6-文件句柄和-systemd-限制" class="headerlink" title="6. 文件句柄和 systemd 限制"></a>6. 文件句柄和 systemd 限制</h2><p><code>fs.file-max</code> 是全机上限，进程真正能拿到多少还受 PAM、systemd 和应用配置约束。容量估算应包含监听 socket、入站连接、上游连接、日志、JAR&#x2F;动态库和监控探针。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> /proc/sys/fs/file-max</span><br><span class="line"><span class="built_in">cat</span> /proc/sys/fs/file-nr</span><br><span class="line">systemctl show myapp -p LimitNOFILE</span><br><span class="line"><span class="built_in">cat</span> /proc/$(pidof myapp)/limits</span><br><span class="line"><span class="built_in">ls</span> /proc/$(pidof myapp)/fd | <span class="built_in">wc</span> -l</span><br></pre></td></tr></table></figure>
+
+<p>优先给服务设置局部上限：</p>
+<figure class="highlight ini"><figcaption><span>/etc/systemd/system/myapp.service.d/limits.conf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[Service]</span></span><br><span class="line"><span class="attr">LimitNOFILE</span>=<span class="number">262144</span></span><br><span class="line"><span class="attr">TasksMax</span>=<span class="number">16384</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> systemctl daemon-reload</span><br><span class="line"><span class="built_in">sudo</span> systemctl restart myapp</span><br></pre></td></tr></table></figure>
+
+<p>不要直接把所有服务的 <code>nofile</code> 调到百万级。过高上限会掩盖连接泄漏，并放大单进程耗尽系统资源的影响。</p>
+<h2 id="7-内存、交换分区和脏页"><a href="#7-内存、交换分区和脏页" class="headerlink" title="7. 内存、交换分区和脏页"></a>7. 内存、交换分区和脏页</h2><p>生产服务器通常保留少量 swap 作为缓冲，而不是完全关闭。数据库是否允许 swap 应结合其内存锁定、容器限制和故障策略判断。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th align="right">16 GB 以上通用节点起点</th>
+<th>判断依据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>vm.swappiness</code></td>
+<td align="right"><code>10</code></td>
+<td><code>sar -W</code> 是否持续换入换出</td>
+</tr>
+<tr>
+<td><code>vm.dirty_background_ratio</code></td>
+<td align="right"><code>5</code></td>
+<td>后台回写是否及时</td>
+</tr>
+<tr>
+<td><code>vm.dirty_ratio</code></td>
+<td align="right"><code>15</code></td>
+<td>突发回写是否造成应用停顿</td>
+</tr>
+<tr>
+<td><code>vm.max_map_count</code></td>
+<td align="right">按应用要求</td>
+<td>Elasticsearch 等 mmap 数量</td>
+</tr>
+</tbody></table>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> fallocate -l 4G /swapfile</span><br><span class="line"><span class="built_in">sudo</span> <span class="built_in">chmod</span> 600 /swapfile</span><br><span class="line"><span class="built_in">sudo</span> mkswap /swapfile</span><br><span class="line"><span class="built_in">sudo</span> swapon /swapfile</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&#x27;/swapfile none swap sw 0 0&#x27;</span> | <span class="built_in">sudo</span> <span class="built_in">tee</span> -a /etc/fstab</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>dirty_*_ratio</code> 按总内存计算，大内存机器可能积累过多脏页。写入密集节点可改用 <code>dirty_background_bytes</code> 和 <code>dirty_bytes</code>，但同一组不要同时配置 ratio 与 bytes。</p>
+</blockquote>
+<h2 id="8-TCP-和监听队列"><a href="#8-TCP-和监听队列" class="headerlink" title="8. TCP 和监听队列"></a>8. TCP 和监听队列</h2><p>下面是 16 核、32 GB、万级并发 Web 节点的保守起点，不是所有机器的默认答案：</p>
+<figure class="highlight plaintext"><figcaption><span>/etc/sysctl.d/99-web-tuning.conf</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">fs.file-max = 1048576</span><br><span class="line">vm.swappiness = 10</span><br><span class="line">vm.dirty_background_ratio = 5</span><br><span class="line">vm.dirty_ratio = 15</span><br><span class="line"></span><br><span class="line">net.core.somaxconn = 4096</span><br><span class="line">net.core.netdev_max_backlog = 8192</span><br><span class="line">net.ipv4.tcp_max_syn_backlog = 8192</span><br><span class="line">net.ipv4.ip_local_port_range = 10000 65535</span><br><span class="line">net.ipv4.tcp_syncookies = 1</span><br><span class="line">net.ipv4.tcp_keepalive_time = 600</span><br><span class="line">net.ipv4.tcp_keepalive_intvl = 30</span><br><span class="line">net.ipv4.tcp_keepalive_probes = 5</span><br><span class="line">net.ipv4.tcp_mtu_probing = 1</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> sysctl --system</span><br><span class="line">sysctl net.core.somaxconn net.ipv4.tcp_max_syn_backlog</span><br></pre></td></tr></table></figure>
+
+<p>三层队列必须一起校验：内核 <code>somaxconn</code>、Web 容器 backlog、应用 accept 队列。只扩大内核值而应用仍为 128 不会生效。短连接压测还要检查客户端临时端口，而非只调服务端。</p>
+<p>不要使用已删除的 <code>tcp_tw_recycle</code>，也不要为减少 <code>TIME_WAIT</code> 盲目缩短连接生命周期。优先启用连接池和 HTTP keep-alive。</p>
+<h3 id="8-1-BBR-的使用边界"><a href="#8-1-BBR-的使用边界" class="headerlink" title="8.1 BBR 的使用边界"></a>8.1 BBR 的使用边界</h3><p>Ubuntu 24.04 内核通常包含 BBR。它主要改善有带宽时延积、丢包或长距离链路的吞吐，本机房低延迟 RPC 未必受益。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sysctl net.ipv4.tcp_available_congestion_control</span><br><span class="line"><span class="built_in">sudo</span> modprobe tcp_bbr</span><br><span class="line"><span class="built_in">sudo</span> sysctl -w net.ipv4.tcp_congestion_control=bbr</span><br><span class="line">sysctl net.ipv4.tcp_congestion_control</span><br></pre></td></tr></table></figure>
+
+<p>开启前后比较吞吐、p99、重传、丢包和 CPU，结果不改善就回滚到原拥塞算法。</p>
+<h2 id="9-压测、灰度与回滚"><a href="#9-压测、灰度与回滚" class="headerlink" title="9. 压测、灰度与回滚"></a>9. 压测、灰度与回滚</h2><ol>
+<li>保存 <code>sysctl -a</code>、systemd 限制、防火墙规则和 24 小时指标。</li>
+<li>固定压测数据、请求比例和下游容量，阶梯增加并发。</li>
+<li>单次只修改内存、队列或 TCP 中的一组。</li>
+<li>先灰度一台或 5% 流量，观察至少一个高峰周期。</li>
+<li>出现错误率上升、p99 劣化 10%、重传增加或 swap 持续写入时立即回滚。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 回滚示例：删除独立调优文件即可恢复发行版默认值</span></span><br><span class="line"><span class="built_in">sudo</span> <span class="built_in">rm</span> /etc/sysctl.d/99-web-tuning.conf</span><br><span class="line"><span class="built_in">sudo</span> sysctl --system</span><br></pre></td></tr></table></figure>
+
+<h2 id="10-参考资料"><a href="#10-参考资料" class="headerlink" title="10. 参考资料"></a>10. 参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://documentation.ubuntu.com/server/">Ubuntu Server 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://documentation.ubuntu.com/security/compliance/usg/">Ubuntu 安全与 USG CIS 加固</a></li>
+<li><a target="_blank" rel="noopener" href="https://documentation.ubuntu.com/server/how-to/software/automatic-updates/">Ubuntu 自动安全更新</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.kernel.org/networking/ip-sysctl.html">Linux 内核网络 sysctl</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html">systemd.exec 资源限制</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/fail2ban/fail2ban/wiki">Fail2ban 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/ecs/support/linux-instance/">阿里云 ECS Linux 实例问题排查</a></li>
+<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/security-center/user-guide/baseline-check">阿里云安全中心主机基线</a></li>
+</ul>
+<h2 id="11-Ansible-配置"><a href="#11-Ansible-配置" class="headerlink" title="11. Ansible 配置"></a>11. Ansible 配置</h2><p>执行前安装防火墙集合：<code>ansible-galaxy collection install community.general</code>。将管理网段和服务名放在 inventory 变量中，不要把示例地址直接带入生产。</p>
+<figure class="highlight yaml"><figcaption><span>server-tuning.yml</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置</span> <span class="string">Ubuntu</span> <span class="string">生产基线</span></span><br><span class="line">  <span class="attr">hosts:</span> <span class="string">ubuntu_servers</span></span><br><span class="line">  <span class="attr">become:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">vars:</span></span><br><span class="line">    <span class="attr">ssh_admin_cidr:</span> <span class="string">&quot;10.10.0.0/16&quot;</span></span><br><span class="line">    <span class="attr">managed_service:</span> <span class="string">&quot;myapp&quot;</span></span><br><span class="line">  <span class="attr">tasks:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">安装安全和观测工具</span></span><br><span class="line">      <span class="attr">ansible.builtin.apt:</span></span><br><span class="line">        <span class="attr">name:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">auditd</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">chrony</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">fail2ban</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">lynis</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">sysstat</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">ufw</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">unattended-upgrades</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">present</span></span><br><span class="line">        <span class="attr">update_cache:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入</span> <span class="string">SSH</span> <span class="string">加固配置</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/ssh/sshd_config.d/10-hardening.conf</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          PermitRootLogin no</span></span><br><span class="line"><span class="string">          PasswordAuthentication no</span></span><br><span class="line"><span class="string">          KbdInteractiveAuthentication no</span></span><br><span class="line"><span class="string">          PubkeyAuthentication yes</span></span><br><span class="line"><span class="string">          MaxAuthTries 3</span></span><br><span class="line"><span class="string">          LoginGraceTime 30</span></span><br><span class="line"><span class="string">          X11Forwarding no</span></span><br><span class="line"><span class="string"></span>        <span class="attr">validate:</span> <span class="string">/usr/sbin/sshd</span> <span class="string">-t</span> <span class="string">-f</span> <span class="string">%s</span></span><br><span class="line">      <span class="attr">notify:</span> <span class="string">重载</span> <span class="string">SSH</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">写入内核参数</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">/etc/sysctl.d/99-web-tuning.conf</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          fs.file-max = 1048576</span></span><br><span class="line"><span class="string">          vm.swappiness = 10</span></span><br><span class="line"><span class="string">          vm.dirty_background_ratio = 5</span></span><br><span class="line"><span class="string">          vm.dirty_ratio = 15</span></span><br><span class="line"><span class="string">          net.core.somaxconn = 4096</span></span><br><span class="line"><span class="string">          net.core.netdev_max_backlog = 8192</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_max_syn_backlog = 8192</span></span><br><span class="line"><span class="string">          net.ipv4.ip_local_port_range = 10000 65535</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_syncookies = 1</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_keepalive_time = 600</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_keepalive_intvl = 30</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_keepalive_probes = 5</span></span><br><span class="line"><span class="string">          net.ipv4.tcp_mtu_probing = 1</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">应用内核参数</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">创建服务限制目录</span></span><br><span class="line">      <span class="attr">ansible.builtin.file:</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">&quot;/etc/systemd/system/<span class="template-variable">&#123;&#123; managed_service &#125;&#125;</span>.service.d&quot;</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">directory</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0755&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">配置服务文件句柄上限</span></span><br><span class="line">      <span class="attr">ansible.builtin.copy:</span></span><br><span class="line">        <span class="attr">dest:</span> <span class="string">&quot;/etc/systemd/system/<span class="template-variable">&#123;&#123; managed_service &#125;&#125;</span>.service.d/limits.conf&quot;</span></span><br><span class="line">        <span class="attr">mode:</span> <span class="string">&quot;0644&quot;</span></span><br><span class="line">        <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line"><span class="string">          [Service]</span></span><br><span class="line"><span class="string">          LimitNOFILE=262144</span></span><br><span class="line"><span class="string">          TasksMax=16384</span></span><br><span class="line"><span class="string"></span>      <span class="attr">notify:</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">默认拒绝入站流量</span></span><br><span class="line">      <span class="attr">community.general.ufw:</span></span><br><span class="line">        <span class="attr">direction:</span> <span class="string">incoming</span></span><br><span class="line">        <span class="attr">policy:</span> <span class="string">deny</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">允许管理网段访问</span> <span class="string">SSH</span></span><br><span class="line">      <span class="attr">community.general.ufw:</span></span><br><span class="line">        <span class="attr">rule:</span> <span class="string">allow</span></span><br><span class="line">        <span class="attr">src:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; ssh_admin_cidr &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">port:</span> <span class="string">&quot;22&quot;</span></span><br><span class="line">        <span class="attr">proto:</span> <span class="string">tcp</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">允许</span> <span class="string">Web</span> <span class="string">端口</span></span><br><span class="line">      <span class="attr">community.general.ufw:</span></span><br><span class="line">        <span class="attr">rule:</span> <span class="string">allow</span></span><br><span class="line">        <span class="attr">port:</span> <span class="string">&quot;<span class="template-variable">&#123;&#123; item &#125;&#125;</span>&quot;</span></span><br><span class="line">        <span class="attr">proto:</span> <span class="string">tcp</span></span><br><span class="line">      <span class="attr">loop:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">&quot;80&quot;</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">&quot;443&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">启用防火墙</span></span><br><span class="line">      <span class="attr">community.general.ufw:</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">enabled</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">handlers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重载</span> <span class="string">SSH</span></span><br><span class="line">      <span class="attr">ansible.builtin.service:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">ssh</span></span><br><span class="line">        <span class="attr">state:</span> <span class="string">reloaded</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">应用内核参数</span></span><br><span class="line">      <span class="attr">ansible.builtin.command:</span> <span class="string">/usr/sbin/sysctl</span> <span class="string">--system</span></span><br><span class="line">      <span class="attr">changed_when:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">重载</span> <span class="string">systemd</span></span><br><span class="line">      <span class="attr">ansible.builtin.systemd_service:</span></span><br><span class="line">        <span class="attr">daemon_reload:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/%E5%AE%89%E5%85%A8/" rel="tag"># 安全</a>
+              <a href="/tags/%E5%86%85%E6%A0%B8/" rel="tag"># 内核</a>
+          </div>
 
         
 
-
-
-
-
-
-
-        
-      </div>
+          <div class="post-nav">
+            <div class="post-nav-item">
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/03/07/jvm-tuning/" rel="next" title="JVM 调优">
+                  JVM 调优 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
     </footer>
+  </article>
+</div>
 
-    
-      <div class="back-to-top">
-        <i class="fa fa-arrow-up"></i>
-        
-      </div>
-    
 
-    
 
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">ljm</span>
+  </div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
   </div>
 
-  
-
-<script type="text/javascript">
-  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
-    window.Promise = null;
-  }
-</script>
-
-
-
-
-
-
-
-
+    </div>
+  </footer>
 
   
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
 
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
-  
-
-  
-  
-    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
-  
-
-  
-  
-    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
-  
-
-  
-  
-    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-  
-
-  
-  
-    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-  
-
-  
-  
-    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
-  
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
-
-  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
-
-
-
-  
-  
-
-
-  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
-
-  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
-
-
-
-  
-  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
-<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
-
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
-
-
-
-  
-
-
-  
-
-
-
-
-	
-
-
-
-
-
-  
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-  <script type="text/javascript">
-    // Popup Window;
-    var isfetched = false;
-    var isXml = true;
-    // Search DB path;
-    var search_path = "search.json";
-    if (search_path.length === 0) {
-      search_path = "search.xml";
-    } else if (/json$/i.test(search_path)) {
-      isXml = false;
-    }
-    var path = "/" + search_path;
-    // monitor main search box;
-
-    var onPopupClose = function (e) {
-      $('.popup').hide();
-      $('#local-search-input').val('');
-      $('.search-result-list').remove();
-      $('#no-result').remove();
-      $(".local-search-pop-overlay").remove();
-      $('body').css('overflow', '');
-    }
-
-    function proceedsearch() {
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
-        .css('overflow', 'hidden');
-      $('.search-popup-overlay').click(onPopupClose);
-      $('.popup').toggle();
-      var $localSearchInput = $('#local-search-input');
-      $localSearchInput.attr("autocapitalize", "none");
-      $localSearchInput.attr("autocorrect", "off");
-      $localSearchInput.focus();
-    }
-
-    // search function;
-    var searchFunc = function(path, search_id, content_id) {
-      'use strict';
-
-      // start loading animation
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
-          '<div id="search-loading-icon">' +
-          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
-          '</div>' +
-          '</div>')
-        .css('overflow', 'hidden');
-      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
-
-      $.ajax({
-        url: path,
-        dataType: isXml ? "xml" : "json",
-        async: true,
-        success: function(res) {
-          // get the contents from search data
-          isfetched = true;
-          $('.popup').detach().appendTo('.header-inner');
-          var datas = isXml ? $("entry", res).map(function() {
-            return {
-              title: $("title", this).text(),
-              content: $("content",this).text(),
-              url: $("url" , this).text()
-            };
-          }).get() : res;
-          var input = document.getElementById(search_id);
-          var resultContent = document.getElementById(content_id);
-          var inputEventFunction = function() {
-            var searchText = input.value.trim().toLowerCase();
-            var keywords = searchText.split(/[\s\-]+/);
-            if (keywords.length > 1) {
-              keywords.push(searchText);
-            }
-            var resultItems = [];
-            if (searchText.length > 0) {
-              // perform local searching
-              datas.forEach(function(data) {
-                var isMatch = false;
-                var hitCount = 0;
-                var searchTextCount = 0;
-                var title = data.title.trim();
-                var titleInLowerCase = title.toLowerCase();
-                var content = data.content.trim().replace(/<[^>]+>/g,"");
-                var contentInLowerCase = content.toLowerCase();
-                var articleUrl = decodeURIComponent(data.url);
-                var indexOfTitle = [];
-                var indexOfContent = [];
-                // only match articles with not empty titles
-                if(title != '') {
-                  keywords.forEach(function(keyword) {
-                    function getIndexByWord(word, text, caseSensitive) {
-                      var wordLen = word.length;
-                      if (wordLen === 0) {
-                        return [];
-                      }
-                      var startPosition = 0, position = [], index = [];
-                      if (!caseSensitive) {
-                        text = text.toLowerCase();
-                        word = word.toLowerCase();
-                      }
-                      while ((position = text.indexOf(word, startPosition)) > -1) {
-                        index.push({position: position, word: word});
-                        startPosition = position + wordLen;
-                      }
-                      return index;
-                    }
-
-                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
-                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
-                  });
-                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
-                    isMatch = true;
-                    hitCount = indexOfTitle.length + indexOfContent.length;
-                  }
-                }
-
-                // show search results
-
-                if (isMatch) {
-                  // sort index by position of keyword
-
-                  [indexOfTitle, indexOfContent].forEach(function (index) {
-                    index.sort(function (itemLeft, itemRight) {
-                      if (itemRight.position !== itemLeft.position) {
-                        return itemRight.position - itemLeft.position;
-                      } else {
-                        return itemLeft.word.length - itemRight.word.length;
-                      }
-                    });
-                  });
-
-                  // merge hits into slices
-
-                  function mergeIntoSlice(text, start, end, index) {
-                    var item = index[index.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    var hits = [];
-                    var searchTextCountInSlice = 0;
-                    while (position + word.length <= end && index.length != 0) {
-                      if (word === searchText) {
-                        searchTextCountInSlice++;
-                      }
-                      hits.push({position: position, length: word.length});
-                      var wordEnd = position + word.length;
-
-                      // move to next position of hit
-
-                      index.pop();
-                      while (index.length != 0) {
-                        item = index[index.length - 1];
-                        position = item.position;
-                        word = item.word;
-                        if (wordEnd > position) {
-                          index.pop();
-                        } else {
-                          break;
-                        }
-                      }
-                    }
-                    searchTextCount += searchTextCountInSlice;
-                    return {
-                      hits: hits,
-                      start: start,
-                      end: end,
-                      searchTextCount: searchTextCountInSlice
-                    };
-                  }
-
-                  var slicesOfTitle = [];
-                  if (indexOfTitle.length != 0) {
-                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
-                  }
-
-                  var slicesOfContent = [];
-                  while (indexOfContent.length != 0) {
-                    var item = indexOfContent[indexOfContent.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    // cut out 100 characters
-                    var start = position - 20;
-                    var end = position + 80;
-                    if(start < 0){
-                      start = 0;
-                    }
-                    if (end < position + word.length) {
-                      end = position + word.length;
-                    }
-                    if(end > content.length){
-                      end = content.length;
-                    }
-                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
-                  }
-
-                  // sort slices in content by search text's count and hits' count
-
-                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
-                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
-                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
-                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
-                      return sliceRight.hits.length - sliceLeft.hits.length;
-                    } else {
-                      return sliceLeft.start - sliceRight.start;
-                    }
-                  });
-
-                  // select top N slices in content
-
-                  var upperBound = parseInt('1');
-                  if (upperBound >= 0) {
-                    slicesOfContent = slicesOfContent.slice(0, upperBound);
-                  }
-
-                  // highlight title and content
-
-                  function highlightKeyword(text, slice) {
-                    var result = '';
-                    var prevEnd = slice.start;
-                    slice.hits.forEach(function (hit) {
-                      result += text.substring(prevEnd, hit.position);
-                      var end = hit.position + hit.length;
-                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
-                      prevEnd = end;
-                    });
-                    result += text.substring(prevEnd, slice.end);
-                    return result;
-                  }
-
-                  var resultItem = '';
-
-                  if (slicesOfTitle.length != 0) {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
-                  } else {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
-                  }
-
-                  slicesOfContent.forEach(function (slice) {
-                    resultItem += "<a href='" + articleUrl + "'>" +
-                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
-                      "...</p>" + "</a>";
-                  });
-
-                  resultItem += "</li>";
-                  resultItems.push({
-                    item: resultItem,
-                    searchTextCount: searchTextCount,
-                    hitCount: hitCount,
-                    id: resultItems.length
-                  });
-                }
-              })
-            };
-            if (keywords.length === 1 && keywords[0] === "") {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
-            } else if (resultItems.length === 0) {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
-            } else {
-              resultItems.sort(function (resultLeft, resultRight) {
-                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
-                  return resultRight.searchTextCount - resultLeft.searchTextCount;
-                } else if (resultLeft.hitCount !== resultRight.hitCount) {
-                  return resultRight.hitCount - resultLeft.hitCount;
-                } else {
-                  return resultRight.id - resultLeft.id;
-                }
-              });
-              var searchResultList = '<ul class=\"search-result-list\">';
-              resultItems.forEach(function (result) {
-                searchResultList += result.item;
-              })
-              searchResultList += "</ul>";
-              resultContent.innerHTML = searchResultList;
-            }
-          }
-
-          if ('auto' === 'auto') {
-            input.addEventListener('input', inputEventFunction);
-          } else {
-            $('.search-icon').click(inputEventFunction);
-            input.addEventListener('keypress', function (event) {
-              if (event.keyCode === 13) {
-                inputEventFunction();
-              }
-            });
-          }
-
-          // remove loading animation
-          $(".local-search-pop-overlay").remove();
-          $('body').css('overflow', '');
-
-          proceedsearch();
-        }
-      });
-    }
-
-    // handle and trigger popup window;
-    $('.popup-trigger').click(function(e) {
-      e.stopPropagation();
-      if (isfetched === false) {
-        searchFunc(path, 'local-search-input', 'local-search-result');
-      } else {
-        proceedsearch();
-      };
-    });
-
-    $('.popup-btn-close').click(onPopupClose);
-    $('.popup').click(function(e){
-      e.stopPropagation();
-    });
-    $(document).on('keyup', function (event) {
-      var shouldDismissSearchPopup = event.which === 27 &&
-        $('.search-popup').is(':visible');
-      if (shouldDismissSearchPopup) {
-        onPopupClose();
-      }
-    });
-  </script>
-
-
-
-
-
-  
-
-  
-
-  
-
-  
-  
-
-  
-
-  
-
-  
-
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script><script>mermaid.initialize({startOnLoad:true,theme:"neutral"});</script>
 </body>
 </html>
