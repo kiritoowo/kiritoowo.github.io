@@ -1,0 +1,106 @@
+# NexT 8 备用主题配置，避免直接修改 node_modules 中的主题文件。
+scheme: Pisces
+darkmode: false
+
+cache:
+  enable: true
+minify: true
+
+menu:
+  home: / || fa fa-home
+  categories: /categories/ || fa fa-th
+  tags: /tags/ || fa fa-tags
+  archives: /archives/ || fa fa-archive
+menu_settings:
+  icons: true
+  badges: true
+
+avatar:
+  url: /images/avatar.jpg
+  rounded: true
+  rotated: false
+
+site_state: true
+social:
+  GitHub: https://github.com/kiritoowo || fab fa-github
+social_icons:
+  enable: true
+  icons_only: false
+  transition: false
+
+sidebar:
+  position: left
+  display: post
+  width_dual_column: 260
+  offset: 12
+
+toc:
+  enable: true
+  number: false
+  wrap: true
+  expand_all: false
+  max_depth: 4
+
+excerpt_description: true
+read_more_btn: true
+post_meta:
+  item_text: true
+  created_at: true
+  updated_at:
+    enable: true
+  categories: true
+
+codeblock:
+  theme:
+    light: github
+    dark: stackoverflow-dark
+  copy_button:
+    enable: true
+    style: flat
+  fold:
+    enable: false
+  language: true
+
+back2top:
+  enable: true
+  sidebar: false
+  scrollpercent: true
+reading_progress:
+  enable: true
+  start_at: left
+  position: top
+  color: "#2563eb"
+  height: 2px
+
+# PJAX 仅替换内容区，不重新加载整页；关闭动画避免文章闪烁。
+pjax: true
+motion:
+  enable: false
+pace:
+  enable: false
+
+local_search:
+  enable: true
+  top_n_per_article: 3
+  unescape: true
+  preload: false
+
+mermaid:
+  enable: false
+
+font:
+  enable: false
+
+vendors:
+  internal: local
+  plugins: cdnjs
+  fontawesome: /lib/fontawesome/css/all.min.css
+  pjax: /lib/pjax/pjax.min.js
+  local_search: /lib/search/search.js
+
+footer:
+  since: 2018
+  powered: true
+
+custom_file_path:
+  style: source/_data/styles.styl

@@ -1,59 +1,66 @@
-# Hexo 博客配置
+# 站点信息
 title: kirito
-subtitle: 醒醒 该写代码了
-description: 无限进步
+subtitle: 醒醒，该写代码了
+description: 记录可验证、可回滚的工程实践
+keywords: Java, Linux, 中间件, 性能调优
 author: ljm
-language: zh-Hans
+language: zh-CN
 timezone: Asia/Shanghai
+
+# 地址与链接
 url: https://kiritoowo.github.io
 root: /
 permalink: :year/:month/:day/:title/
+permalink_defaults:
+pretty_urls:
+  trailing_index: true
+  trailing_html: true
+
+# 目录
+source_dir: source
+public_dir: public
+
+# 写作与代码高亮
+new_post_name: :title.md
+default_layout: post
+titlecase: false
+external_link:
+  enable: true
+  field: site
+  exclude:
+highlight:
+  enable: true
+  line_number: true
+  auto_detect: false
+  tab_replace: "  "
+  wrap: true
+  hljs: false
+
+# 首页与归档分页
+index_generator:
+  path: ""
+  per_page: 7
+  order_by: -date
+archive_generator:
+  per_page: 20
+  yearly: true
+  monthly: false
+category_generator:
+  per_page: 20
+tag_generator:
+  per_page: 20
+
+# 本地搜索索引只包含文章正文
+search:
+  path: search.xml
+  field: post
+  content: true
+  format: html
+
 theme: next
-theme_config:
-  scheme: Pisces
-  sidebar:
-    position: left
-    display: post
-  menu:
-    home: /||home
-    categories: /categories/||th
-    archives: /archives/||archive
-  avatar: /images/avatar.jpg
-  author: ljm
-  description: 无限进步
-  social:
-    GitHub: https://github.com/kiritoowo || github
-  post_meta:
-    item_text: true
-  mermaid:
-    enable: true
-  custom_file_path:
-    style: source/_data/styles.styl
-  footer:
-    since: 2018
-  footerpowered:
-    enable: true
-  search:
-    path: search.json
-    field: post
-    format: html
-    limit: 10000
-  local_search:
-    enable: true
-    trigger: auto
-    top_n_per_article: 1
-  codeblock:
-    theme:
-      light: normal
-      dark: night
-  motion:
-    enable: false
-  pace: false
-  language: zh-CN
+
 deploy:
   type: git
   repo: https://github.com/kiritoowo/kiritoowo.github.io.git
   branch: master
   message: "Hexo deploy: {{ now('YYYY-MM-DD HH:mm:ss') }}"
-source_dir: source
-public_dir: public

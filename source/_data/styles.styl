@@ -1,0 +1,39 @@
+// 调优专栏的轻量增强样式，主体排版继续使用 NexT Pisces。
+:root {
+  --callout-note: #2563eb;
+}
+
+.post-body {
+  h2 {
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: .35em;
+  }
+
+  table {
+    display: table;
+    width: 100%;
+  }
+
+  blockquote {
+    border-left-color: var(--callout-note);
+    background: #f8fafc;
+    color: #334155;
+  }
+}
+
+.post-button .btn {
+  border-radius: 4px;
+}
+
+.pagination .page-number,
+.pagination .extend {
+  min-width: 2.25em;
+}
+
+@media (max-width: 767px) {
+  .post-body table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

@@ -42,8 +42,8 @@ npm run deploy
 
 ## 版本说明
 
-- Hexo 7.3.0
-- NexT Pisces 5.1.4
-- Node.js 14 或更高版本
+- Hexo 8.1.2
+- NexT Pisces 8.29.0
+- Node.js 20.19.0 或更高版本
 
-NexT 5.1.4 依赖已停止维护的 Swig 渲染器，安装时可能出现 npm audit 提示；如升级主题，应同步验证模板和配置兼容性。
+主题配置位于 `_config.next.yml`，不要直接修改 `node_modules/hexo-theme-next`。站内导航使用本地托管的 PJAX，主题脚本、图标和搜索均不依赖运行时外部 CDN。
