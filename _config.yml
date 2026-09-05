@@ -63,4 +63,4 @@ deploy:
   type: git
   repo: https://github.com/kiritoowo/kiritoowo.github.io.git
   branch: master
-  message: "Hexo deploy: {{ now('YYYY-MM-DD HH:mm:ss') }}"
+  message: "Hexo deploy: {{ now('yyyy-MM-dd HH:mm:ss') }}"
